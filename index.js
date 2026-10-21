@@ -349,15 +349,15 @@ async function handleOrderFlow(from, input, state) {
         [{
           title: 'Sin costo adicional',
           rows: [
-            { id: 'papel_hilo',  title: 'Opalina Biancoflash Hilo', description: 'Sin costo adicional' },
-            { id: 'papel_lisa',  title: 'Opalina Biancoflash Lisa', description: 'Sin costo adicional' },
+            { id: 'papel_hilo',  title: 'Biancoflash Hilo', description: 'Sin costo adicional' },
+            { id: 'papel_lisa',  title: 'Biancoflash Lisa', description: 'Sin costo adicional' },
             { id: 'papel_craft', title: 'Papel Craft',               description: 'Sin costo adicional' }
           ]
         }, {
           title: 'Con costo adicional',
           rows: [
-            { id: 'papel_ivory', title: 'Opalina Biancoflash Ivory', description: '+$200 por unidad' },
-            { id: 'papel_rosa',  title: 'Opalina Biancoflash Rosa',  description: '+$200 por unidad' },
+            { id: 'papel_ivory', title: 'Biancoflash Ivory', description: '+$200 por unidad' },
+            { id: 'papel_rosa',  title: 'Biancoflash Rosa',  description: '+$200 por unidad' },
             { id: 'papel_alga',  title: 'Reciclado Alga Blanco',     description: '+$200 por unidad' }
           ]
         }]
@@ -366,8 +366,8 @@ async function handleOrderFlow(from, input, state) {
 
     case 'order_impresa_papel': {
       const papeles = {
-        papel_hilo:  'Opalina Biancoflash Hilo',
-        papel_lisa:  'Opalina Biancoflash Lisa',
+        papel_hilo:  'Biancoflash Hilo',
+        papel_lisa:  'Biancoflash Lisa',
         papel_craft: 'Papel Craft',
         papel_ivory: 'Opalina Biancoflash Ivory (+$200)',
         papel_rosa:  'Opalina Biancoflash Rosa (+$200)',
@@ -513,8 +513,8 @@ async function sendMainMenu(from) {
         { id: 'opt_impresas',  title: 'Invitaciones impresas',       description: 'Bodas y eventos especiales' },
         { id: 'opt_digitales', title: 'Invitaciones digitales',       description: 'PDF interactivo' },
         { id: 'opt_papeleria', title: 'Papelería complementaria',     description: 'Menús, números de mesa y más' },
-        { id: 'opt_tienda',    title: 'Tienda online / Materiales',   description: 'Sellos, flores, sobres y más' },
-        { id: 'opt_impresion', title: 'Servicio de impresión y corte', description: 'Ya tienes tu diseño' }
+        { id: 'opt_tienda',    title: 'Tienda y materiales',   description: 'Sellos, flores, sobres y más' },
+        { id: 'opt_impresion', title: 'Servicio de impresión', description: 'Ya tienes tu diseño' }
       ]
     }, {
       title: 'Más opciones',
@@ -536,7 +536,7 @@ async function sendImpresasMenu(from) {
       rows: [
         { id: 'imp_catalogo',    title: 'Ver catálogo',              description: 'Todos nuestros diseños' },
         { id: 'imp_personalizar', title: 'Personalizar diseño',      description: 'Colores, tipografía y más' },
-        { id: 'imp_nuevo',       title: 'Diseño completamente nuevo', description: '+$10.000 por diseño (único)' },
+        { id: 'imp_nuevo',       title: 'Diseño nuevo (único)', description: '+$10.000 por diseño (único)' },
         { id: 'imp_proceso',     title: 'Cómo funciona el proceso',  description: 'Pasos y tiempos' },
         { id: 'main_back',       title: 'Volver al menú',            description: '' }
       ]
@@ -551,7 +551,7 @@ async function sendDigitalesMenu(from) {
     [{
       title: 'Opciones',
       rows: [
-        { id: 'dig_prediseñada',   title: 'Prediseñada (del catálogo)', description: 'Desde la página web' },
+        { id: 'dig_prediseñada',   title: 'Prediseñada (catálogo)', description: 'Desde la página web' },
         { id: 'dig_personalizada', title: 'Diseño personalizado',        description: 'Todo a tu gusto' },
         { id: 'dig_que_incluye',   title: '¿Qué incluye?',              description: 'Ver todo lo que viene' },
         { id: 'dig_adicionales',   title: 'Adicionales disponibles',    description: 'Itinerario, fotos extra y más' },
@@ -659,9 +659,8 @@ async function sendListMessage(to, text, buttonText, sections) {
         sections: sections.map(s => ({
           title: s.title,
           rows: s.rows.map(r => ({
-            id:          r.id,
-            title:       r.title.substring(0, 24),
-            description: (r.description || '').substring(0, 72)
+            id:    r.id,
+            title: r.title.substring(0, 24)
           }))
         }))
       }

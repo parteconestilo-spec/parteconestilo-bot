@@ -151,7 +151,7 @@ async function handleMessage(from, input) {
       break;
 
     case 'dig_prediseñada':
-      await sendText(from, '¡Perfecto! Puedes ver y comprar desde nuestra web 🌐\n👉 https://parteconestilo.cl\n\nUna vez hecha la compra:\n1️⃣ Te llegará un *correo con un formulario* para completar\n2️⃣ Nos lo reenvías completado\n3️⃣ Te confirmamos la fecha en que estará lista\n⏱️ *3 a 5 días hábiles*\n4️⃣ Puedes solicitar cambios en la *información* _(no en diseño, colores ni tipografía)_\n\n¿Cómo prefieres pagar?');
+      await sendText(from, '¡Perfecto! Puedes ver y comprar desde nuestra web 🌐\n👉 https://www.parteconestilo.cl/invitaciones-digitales\n\nUna vez hecha la compra:\n1️⃣ Te llegará un *correo con un formulario* para completar\n2️⃣ Nos lo reenvías completado\n3️⃣ Te confirmamos la fecha en que estará lista\n⏱️ *3 a 5 días hábiles*\n4️⃣ Puedes solicitar cambios en la *información* _(no en diseño, colores ni tipografía)_\n\n¿Cómo prefieres pagar?');
       await sendButtons(from, '¿Cómo prefieres pagar?', [
         { id: 'dig_web',          title: 'Comprar en la web' },
         { id: 'dig_transferencia', title: 'Transferencia' },
@@ -160,7 +160,7 @@ async function handleMessage(from, input) {
       break;
 
     case 'dig_web':
-      await sendText(from, '🌐 Puedes comprar directamente aquí:\n👉 https://parteconestilo.cl\n\nUna vez que realices la compra, recibirás el correo con los pasos a seguir 💌');
+      await sendText(from, '🌐 Puedes comprar directamente aquí:\n👉 https://www.parteconestilo.cl/invitaciones-digitales\n\nUna vez que realices la compra, recibirás el correo con los pasos a seguir 💌');
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'dig_adicionales', title: 'Ver adicionales' },
         { id: 'main_back',       title: 'Menú principal' },
@@ -194,7 +194,7 @@ async function handleMessage(from, input) {
 
     // ── Papelería ──────────────────────────────────────────────────────────
     case 'pap_catalogo':
-      await sendText(from, '🔍 Puedes ver nuestros diseños de papelería aquí:\n👉 https://parteconestilo.cl\n\n¿Tienes alguna consulta? 😊');
+      await sendText(from, '🔍 Puedes ver nuestros complementos aquí:\n👉 https://www.parteconestilo.cl/papeles\n\n¿Tienes alguna consulta? 😊');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'pap_personalizada', title: 'Solicitar personalizada' },
         { id: 'main_back',         title: 'Menú principal' },
@@ -209,7 +209,7 @@ async function handleMessage(from, input) {
 
     // ── Tienda ─────────────────────────────────────────────────────────────
     case 'tienda_ir':
-      await sendText(from, '🛒 Visita nuestra tienda online:\n👉 https://parteconestilo.cl/tienda\n\nEncuentra sellos de lacre, flores, sobres, rodillo adhesivo y más 🌿');
+      await sendText(from, '🛒 Visita nuestra tienda online:\n👉 https://www.parteconestilo.cl/category/all-products\n\nEncuentra sellos de lacre, flores, sobres, rodillo adhesivo y más 🌿');
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Preguntas frecuentes' },
         { id: 'main_back',   title: 'Menú principal' },
@@ -229,7 +229,7 @@ async function handleMessage(from, input) {
 
     case 'ped_digital':
       userStates[from] = { step: 'order_digital_diseño', order: { tipo: 'digital' } };
-      await sendText(from, '¿Qué diseño te interesa? 📱\n\nVe el catálogo en: https://parteconestilo.cl\n\nEscribe el nombre del diseño (ej: Javiera, Carolina, Viñedo…)\n\nO escribe *personalizado* si deseas uno a tu gusto.');
+      await sendText(from, '¿Qué diseño te interesa? 📱\n\nVe el catálogo en: https://www.parteconestilo.cl/invitaciones-digitales\n\nEscribe el nombre del diseño (ej: Javiera, Carolina, Viñedo…)\n\nO escribe *personalizado* si deseas uno a tu gusto.');
       break;
 
     // ── FAQ individuales ───────────────────────────────────────────────────
@@ -339,6 +339,7 @@ async function handleOrderFlow(from, input, state) {
     case 'order_impresa_email':
       order.email = input;
       userStates[from] = { step: 'order_impresa_papel', order };
+      await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.jpg', 'Papeles disponibles 🗒️');
       await sendListMessage(from,
         '🗒️ *¿Qué papel prefieres?*',
         'Ver papeles',
@@ -372,7 +373,7 @@ async function handleOrderFlow(from, input, state) {
       order.papel = papeles[input] || input;
       userStates[from] = { step: 'order_impresa_adicionales', order };
       await sendText(from,
-        `Papel: *${order.papel}* ✅\n\n*¿Deseas agregar algún adicional?*\n\nEscribe los que desees o escribe *"ninguno"*:\n\n✏️ Nombres escritos con pluma máquina: *+$400*\n🔴 Sello de lacre: *+$400*\n💎 Sello de lacre con iniciales: *+$550*\n📮 Estampillas: *+$200*\n🗺️ Mapa al reverso de la invitación: *+$900*\n🌿 Flor decorativa (ej: ramita de lavanda): *+$350*\n🖨️ Nombres de invitados impresos: *+$200*`
+        `Papel: *${order.papel}* ✅\n\n*¿Deseas agregar algún adicional?*\n\nEscribe los que desees o escribe *"ninguno"*:\n\n✏️ Nombres escritos con pluma a máquina: *+$400*\n🔴 Sello de lacre: *+$400*\n💎 Sello de lacre con iniciales: *+$550*\n📮 Estampillas: *+$200*\n🗺️ Mapa al reverso de la invitación: *+$900*\n🌿 Flor decorativa (ej: ramita de lavanda): *+$350*\n🖨️ Nombres de invitados impresos: *+$200*`
       );
       break;
     }
@@ -507,8 +508,8 @@ async function sendMainMenu(from) {
       title: '✨ Nuestros productos',
       rows: [
         { id: 'opt_impresas',  title: '💌 Invitaciones impresas',   description: 'Bodas y eventos especiales' },
-        { id: 'opt_digitales', title: '📱 Invitaciones digitales',   description: 'PDF interactivo' },
-        { id: 'opt_papeleria', title: '🎀 Papelería y accesorios',   description: 'Menús, números de mesa y más' },
+        { id: 'opt_digitales', title: '📱Invitaciones digitales',    description: 'PDF interactivo' },
+        { id: 'opt_papeleria', title: '🎀 Complementos',              description: 'Menús, números de mesa y más' },
         { id: 'opt_tienda',    title: '🛍️ Tienda y materiales',      description: 'Sellos, flores, sobres y más' },
         { id: 'opt_impresion', title: '✂️ Servicio de impresión',    description: 'Ya tienes tu diseño' }
       ]

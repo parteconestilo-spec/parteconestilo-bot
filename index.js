@@ -4,10 +4,10 @@ const app = express();
 app.use(express.json());
 
 // ── Variables de entorno (se configuran en Railway) ──────────────────────────
-const VERIFY_TOKEN   = process.env.VERIFY_TOKEN   || 'parteconestilo2024';
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-const ACCESS_TOKEN   = process.env.ACCESS_TOKEN;
-const ADMIN_NUMBER   = process.env.ADMIN_NUMBER; // Tu número personal: 569XXXXXXXX
+const VERIFY_TOKEN    = (process.env.VERIFY_TOKEN   || 'parteconestilo2024').trim();
+const PHONE_NUMBER_ID = (process.env.PHONE_NUMBER_ID || '').trim();
+const ACCESS_TOKEN    = (process.env.ACCESS_TOKEN    || '').replace(/[\r\n\s]+/g, '');
+const ADMIN_NUMBER    = (process.env.ADMIN_NUMBER    || '').trim();
 
 // ── Estado de conversaciones en memoria ─────────────────────────────────────
 const userStates = {};

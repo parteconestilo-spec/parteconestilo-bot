@@ -342,7 +342,7 @@ async function handleOrderFlow(from, input, state) {
       await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.JPG', 'Papeles disponibles 🗒️');
       await sendListMessage(from,
         '🗒️ *¿Qué papel prefieres?*',
-        'Ver papeles',
+        'Elegir papel',
         [{
           title: 'Sin costo adicional',
           rows: [

@@ -122,7 +122,8 @@ async function handleMessage(from, input) {
       break;
 
     case 'imp_papeles':
-      await sendText(from, '🗒️ *Papeles disponibles:*\n\n✅ *Sin costo adicional:*\n• Opalina Biancoflash Hilo\n• Opalina Biancoflash Lisa\n• Papel Craft\n\n➕ *Con +$200 por unidad:*\n• Opalina Biancoflash Ivory\n• Opalina Biancoflash Rosa\n• Reciclado Alga Blanco\n\nTambién puedes verlos en parteconestilo.cl 🌐');
+      await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.jpg', 'Papeles disponibles 🗒️');
+      await sendText(from, '🗒️ *Papeles disponibles:*\n\n✅ *Sin costo adicional:*\n• Opalina Biancoflash Hilo\n• Opalina Biancoflash Lisa\n• Papel Kraft\n\n➕ *Con +$200 por unidad:*\n• Opalina Biancoflash Ivory\n• Opalina Biancoflash Hilo Rosa\n• Reciclado Alga Blanco\n\nPuedes tocar la imagen para verla más cerca 🔍\nTambién en parteconestilo.cl 🌐');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'imp_catalogo', title: 'Ver catálogo' },
         { id: 'imp_proceso',  title: 'Volver al proceso' },
@@ -278,7 +279,8 @@ async function handleMessage(from, input) {
       break;
 
     case 'faq_papeles':
-      await sendText(from, '📄 *Papeles disponibles:*\n\n✅ *Sin costo adicional:*\n• Opalina Biancoflash Hilo\n• Opalina Biancoflash Lisa\n• Papel Craft\n\n➕ *Con +$200 por unidad:*\n• Opalina Biancoflash Ivory\n• Opalina Biancoflash Rosa\n• Reciclado Alga Blanco');
+      await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.jpg', 'Papeles disponibles 🗒️');
+      await sendText(from, '📄 *Papeles disponibles:*\n\n✅ *Sin costo adicional:*\n• Opalina Biancoflash Hilo\n• Opalina Biancoflash Lisa\n• Papel Kraft\n\n➕ *Con +$200 por unidad:*\n• Opalina Biancoflash Ivory\n• Opalina Biancoflash Hilo Rosa\n• Reciclado Alga Blanco\n\nPuedes tocar la imagen para verla más cerca 🔍');
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
@@ -330,12 +332,6 @@ async function handleOrderFlow(from, input, state) {
 
     case 'order_impresa_nombre':
       order.nombre = input;
-      userStates[from] = { step: 'order_impresa_contacto', order };
-      await sendText(from, '*¿Cuál es tu número de contacto?*');
-      break;
-
-    case 'order_impresa_contacto':
-      order.contacto = input;
       userStates[from] = { step: 'order_impresa_email', order };
       await sendText(from, '*¿Cuál es tu email?*');
       break;
@@ -349,16 +345,16 @@ async function handleOrderFlow(from, input, state) {
         [{
           title: 'Sin costo adicional',
           rows: [
-            { id: 'papel_hilo',  title: 'Biancoflash Hilo', description: 'Sin costo adicional' },
-            { id: 'papel_lisa',  title: 'Biancoflash Lisa', description: 'Sin costo adicional' },
-            { id: 'papel_craft', title: 'Papel Craft',               description: 'Sin costo adicional' }
+            { id: 'papel_hilo',  title: 'Biancoflash Hilo' },
+            { id: 'papel_lisa',  title: 'Biancoflash Lisa' },
+            { id: 'papel_craft', title: 'Papel Kraft' }
           ]
         }, {
           title: 'Con costo adicional',
           rows: [
-            { id: 'papel_ivory', title: 'Biancoflash Ivory', description: '+$200 por unidad' },
-            { id: 'papel_rosa',  title: 'Biancoflash Rosa',  description: '+$200 por unidad' },
-            { id: 'papel_alga',  title: 'Reciclado Alga Blanco',     description: '+$200 por unidad' }
+            { id: 'papel_ivory', title: 'Ivory +$200' },
+            { id: 'papel_rosa',  title: 'Hilo Rosa +$200' },
+            { id: 'papel_alga',  title: 'Alga Blanco +$200' }
           ]
         }]
       );
@@ -368,15 +364,15 @@ async function handleOrderFlow(from, input, state) {
       const papeles = {
         papel_hilo:  'Biancoflash Hilo',
         papel_lisa:  'Biancoflash Lisa',
-        papel_craft: 'Papel Craft',
-        papel_ivory: 'Opalina Biancoflash Ivory (+$200)',
-        papel_rosa:  'Opalina Biancoflash Rosa (+$200)',
+        papel_craft: 'Papel Kraft',
+        papel_ivory: 'Biancoflash Hilo Ivory (+$200)',
+        papel_rosa:  'Biancoflash Hilo Rosa (+$200)',
         papel_alga:  'Reciclado Alga Blanco (+$200)'
       };
       order.papel = papeles[input] || input;
       userStates[from] = { step: 'order_impresa_adicionales', order };
       await sendText(from,
-        `Papel: *${order.papel}* ✅\n\n*¿Deseas agregar algún adicional?*\n\nEscribe los que desees o escribe *"ninguno"*:\n\n✍️ Nombres con pluma a máquina — *+$400* _(solo opción B)_\n🕯️ Sello de lacre para sobre — *+$400*\n🌿 Flor decorativa — *+$350*\n🗺️ Mapa al reverso — *+$900*\n💌 Estampilla — *+$200 c/u*`
+        `Papel: *${order.papel}* ✅\n\n*¿Deseas agregar algún adicional?*\n\nEscribe los que desees o escribe *"ninguno"*:\n\n✏️ Nombres escritos con pluma máquina: *+$400*\n🔴 Sello de lacre: *+$400*\n💎 Sello de lacre con iniciales: *+$550*\n📮 Estampillas: *+$200*\n🗺️ Mapa al reverso de la invitación: *+$900*\n🌿 Flor decorativa (ej: ramita de lavanda): *+$350*\n🖨️ Nombres de invitados impresos: *+$200*`
       );
       break;
     }
@@ -390,11 +386,11 @@ async function handleOrderFlow(from, input, state) {
       order.comentarios = (input === 'no') ? 'Sin comentarios' : input;
       userStates[from] = { step: 'main_menu' };
       await sendText(from,
-        `¡Listo! Recibimos tu solicitud 🎉\n\n*Resumen:*\n📦 Cantidad: ${order.cantidad} invitaciones\n🎨 Diseño: ${order.diseño}\n👤 Nombre: ${order.nombre}\n📱 Contacto: ${order.contacto}\n📧 Email: ${order.email}\n📄 Papel: ${order.papel}\n➕ Adicionales: ${order.adicionales}\n\nNos pondremos en contacto a la brevedad para confirmarte la cotización y los pasos a seguir 💌\n\n_El pago se realiza una vez que apruebes el bosquejo_ 🌿`
+        `¡Listo! Recibimos tu solicitud 🎉\n\n*Resumen:*\n📦 Cantidad: ${order.cantidad} invitaciones\n🎨 Diseño: ${order.diseño}\n👤 Nombre: ${order.nombre}\n📧 Email: ${order.email}\n📄 Papel: ${order.papel}\n➕ Adicionales: ${order.adicionales}\n\nNos pondremos en contacto a la brevedad para confirmarte la cotización y los pasos a seguir 💌\n\n_El pago se realiza una vez que apruebes el bosquejo_ 🌿`
       );
       if (ADMIN_NUMBER) {
         await sendText(ADMIN_NUMBER,
-          `🔔 *NUEVO PEDIDO — IMPRESA*\n\n📦 Cantidad: ${order.cantidad}\n🎨 Diseño: ${order.diseño}\n👤 Cliente: ${order.nombre}\n📱 Contacto: ${order.contacto}\n📧 Email: ${order.email}\n📄 Papel: ${order.papel}\n➕ Adicionales: ${order.adicionales}\n💬 Comentarios: ${order.comentarios}\n🔗 WA: wa.me/${from}`
+          `🔔 *NUEVO PEDIDO — IMPRESA*\n\n📦 Cantidad: ${order.cantidad}\n🎨 Diseño: ${order.diseño}\n👤 Cliente: ${order.nombre}\n📧 Email: ${order.email}\n📄 Papel: ${order.papel}\n➕ Adicionales: ${order.adicionales}\n💬 Comentarios: ${order.comentarios}\n🔗 WA: wa.me/${from}`
         );
       }
       await sendButtons(from, '¿En qué más te puedo ayudar?', [
@@ -508,20 +504,20 @@ async function sendMainMenu(from) {
     '¿Qué estás buscando hoy? 🌿',
     'Ver opciones',
     [{
-      title: 'Nuestros productos',
+      title: '✨ Nuestros productos',
       rows: [
-        { id: 'opt_impresas',  title: 'Invitaciones impresas',       description: 'Bodas y eventos especiales' },
-        { id: 'opt_digitales', title: 'Invitaciones digitales',       description: 'PDF interactivo' },
-        { id: 'opt_papeleria', title: 'Papelería complementaria',     description: 'Menús, números de mesa y más' },
-        { id: 'opt_tienda',    title: 'Tienda y materiales',   description: 'Sellos, flores, sobres y más' },
-        { id: 'opt_impresion', title: 'Servicio de impresión', description: 'Ya tienes tu diseño' }
+        { id: 'opt_impresas',  title: '💌 Invitaciones impresas',   description: 'Bodas y eventos especiales' },
+        { id: 'opt_digitales', title: '📱 Invitaciones digitales',   description: 'PDF interactivo' },
+        { id: 'opt_papeleria', title: '🎀 Papelería y accesorios',   description: 'Menús, números de mesa y más' },
+        { id: 'opt_tienda',    title: '🛍️ Tienda y materiales',      description: 'Sellos, flores, sobres y más' },
+        { id: 'opt_impresion', title: '✂️ Servicio de impresión',    description: 'Ya tienes tu diseño' }
       ]
     }, {
-      title: 'Más opciones',
+      title: '📋 Más opciones',
       rows: [
-        { id: 'opt_pedido',  title: 'Hacer mi pedido por aquí',  description: 'Sin ir a la página web' },
-        { id: 'opt_faq',     title: 'Preguntas frecuentes',       description: 'Dudas comunes' },
-        { id: 'opt_persona', title: 'Hablar con una persona',     description: 'Lun-Vie 9:30-18:00' }
+        { id: 'opt_pedido',  title: '🛒 Hacer mi pedido',           description: 'Sin ir a la página web' },
+        { id: 'opt_faq',     title: '❓ Preguntas frecuentes',       description: 'Dudas comunes' },
+        { id: 'opt_persona', title: '👩 Hablar con nosotras',        description: 'Lun-Vie 9:30-18:00' }
       ]
     }]
   );
@@ -532,13 +528,13 @@ async function sendImpresasMenu(from) {
     '💌 Invitaciones impresas — ¿qué te gustaría hacer? 🌿',
     'Ver opciones',
     [{
-      title: 'Opciones',
+      title: '💌 Opciones',
       rows: [
-        { id: 'imp_catalogo',    title: 'Ver catálogo',              description: 'Todos nuestros diseños' },
-        { id: 'imp_personalizar', title: 'Personalizar diseño',      description: 'Colores, tipografía y más' },
-        { id: 'imp_nuevo',       title: 'Diseño nuevo (único)', description: '+$10.000 por diseño (único)' },
-        { id: 'imp_proceso',     title: 'Cómo funciona el proceso',  description: 'Pasos y tiempos' },
-        { id: 'main_back',       title: 'Volver al menú',            description: '' }
+        { id: 'imp_catalogo',    title: '📖 Ver catálogo',           description: 'Todos nuestros diseños' },
+        { id: 'imp_personalizar', title: '🎨 Personalizar diseño',   description: 'Colores, tipografía y más' },
+        { id: 'imp_nuevo',       title: '✨ Diseño único',           description: '+$10.000 por diseño (único)' },
+        { id: 'imp_proceso',     title: '📋 Cómo funciona',          description: 'Pasos y tiempos' },
+        { id: 'main_back',       title: '↩️ Volver al menú',         description: '' }
       ]
     }]
   );
@@ -549,13 +545,13 @@ async function sendDigitalesMenu(from) {
     '📱 Invitaciones digitales — ¿qué te gustaría hacer? 🌿',
     'Ver opciones',
     [{
-      title: 'Opciones',
+      title: '📱 Opciones',
       rows: [
-        { id: 'dig_prediseñada',   title: 'Prediseñada (catálogo)', description: 'Desde la página web' },
-        { id: 'dig_personalizada', title: 'Diseño personalizado',        description: 'Todo a tu gusto' },
-        { id: 'dig_que_incluye',   title: '¿Qué incluye?',              description: 'Ver todo lo que viene' },
-        { id: 'dig_adicionales',   title: 'Adicionales disponibles',    description: 'Itinerario, fotos extra y más' },
-        { id: 'main_back',         title: 'Volver al menú',             description: '' }
+        { id: 'dig_prediseñada',   title: '🖥️ Prediseñada',             description: 'Desde la página web' },
+        { id: 'dig_personalizada', title: '🎨 Diseño personalizado',     description: 'Todo a tu gusto' },
+        { id: 'dig_que_incluye',   title: '📦 ¿Qué incluye?',           description: 'Ver todo lo que viene' },
+        { id: 'dig_adicionales',   title: '➕ Adicionales',              description: 'Itinerario, fotos extra y más' },
+        { id: 'main_back',         title: '↩️ Volver al menú',           description: '' }
       ]
     }]
   );
@@ -592,9 +588,9 @@ async function sendImpresionMenu(from) {
 async function sendPedidoMenu(from) {
   await sendText(from, '¡Genial, te ayudo a hacer tu pedido! 🌿');
   await sendButtons(from, '¿Qué tipo de invitación deseas pedir?', [
-    { id: 'ped_impresa', title: 'Invitación impresa' },
-    { id: 'ped_digital', title: 'Invitación digital' },
-    { id: 'main_back',   title: 'Volver al menú' }
+    { id: 'ped_impresa', title: '💌 Impresa' },
+    { id: 'ped_digital', title: '📱 Digital' },
+    { id: 'main_back',   title: '↩️ Menú principal' }
   ]);
 }
 
@@ -628,6 +624,14 @@ async function sendHumano(from) {
 // ── Funciones de envío a la API de WhatsApp ──────────────────────────────────
 async function sendText(to, body) {
   await callAPI({ messaging_product: 'whatsapp', to, type: 'text', text: { body, preview_url: false } });
+}
+
+async function sendImage(to, imageUrl, caption) {
+  await callAPI({
+    messaging_product: 'whatsapp', to,
+    type: 'image',
+    image: { link: imageUrl, caption: caption || '' }
+  });
 }
 
 async function sendButtons(to, text, buttons) {

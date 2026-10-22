@@ -122,7 +122,7 @@ async function handleMessage(from, input) {
       break;
 
     case 'imp_papeles':
-      await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.JPG', 'Papeles disponibles 🗒️');
+      await sendImage(from, 'https://cdn.jsdelivr.net/gh/parteconestilo-spec/parteconestilo-bot@main/papeles.JPG', 'Papeles disponibles 🗒️');
       await sendText(from, '🗒️ *Papeles disponibles:*\n\n✅ *Sin costo adicional:*\n• Opalina Biancoflash Hilo\n• Opalina Biancoflash Lisa\n• Papel Kraft\n\n➕ *Con +$200 por unidad:*\n• Opalina Biancoflash Ivory\n• Opalina Biancoflash Hilo Rosa\n• Reciclado Alga Blanco\n\nPuedes tocar la imagen para verla más cerca 🔍\nTambién en parteconestilo.cl 🌐');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'imp_catalogo', title: 'Ver catálogo' },
@@ -279,7 +279,7 @@ async function handleMessage(from, input) {
       break;
 
     case 'faq_papeles':
-      await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.JPG', 'Papeles disponibles 🗒️');
+      await sendImage(from, 'https://cdn.jsdelivr.net/gh/parteconestilo-spec/parteconestilo-bot@main/papeles.JPG', 'Papeles disponibles 🗒️');
       await sendText(from, '📄 *Papeles disponibles:*\n\n✅ *Sin costo adicional:*\n• Opalina Biancoflash Hilo\n• Opalina Biancoflash Lisa\n• Papel Kraft\n\n➕ *Con +$200 por unidad:*\n• Opalina Biancoflash Ivory\n• Opalina Biancoflash Hilo Rosa\n• Reciclado Alga Blanco\n\nPuedes tocar la imagen para verla más cerca 🔍');
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
@@ -339,7 +339,7 @@ async function handleOrderFlow(from, input, state) {
     case 'order_impresa_email':
       order.email = input;
       userStates[from] = { step: 'order_impresa_papel', order };
-      await sendImage(from, 'https://raw.githubusercontent.com/parteconestilo-spec/parteconestilo-bot/main/papeles.JPG', 'Papeles disponibles 🗒️');
+      await sendImage(from, 'https://cdn.jsdelivr.net/gh/parteconestilo-spec/parteconestilo-bot@main/papeles.JPG', 'Papeles disponibles 🗒️');
       await sendListMessage(from,
         '🗒️ *¿Qué papel prefieres?*',
         'Ver papeles',

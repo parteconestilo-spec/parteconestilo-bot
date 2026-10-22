@@ -81,7 +81,7 @@ async function handleMessage(from, input) {
 
     // ── Impresas ───────────────────────────────────────────────────────────
     case 'imp_catalogo':
-      await sendText(from, '🌐 Puedes ver todos nuestros diseños en nuestra página web:\nhttps://parteconestilo.cl\n\nSi ya elegiste un diseño, ¡escríbenos! 😊');
+      await sendText(from, '🌐 Puedes ver todos nuestros diseños aquí:\nhttps://www.parteconestilo.cl/partesdematrimonio\n\nSi ya elegiste un diseño, ¡escríbenos! 😊');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'imp_personalizar', title: 'Personalizar diseño' },
         { id: 'opt_persona',      title: 'Hablar con nosotras' },
@@ -90,7 +90,7 @@ async function handleMessage(from, input) {
       break;
 
     case 'imp_personalizar':
-      await sendText(from, '¡Genial! 🎨 Nuestros diseños se pueden personalizar en colores, tipografía, imágenes y texto.\n\nAlgunos cambios más elaborados pueden tener un costo adicional.\n\nPara comenzar:\n1️⃣ Revisa el catálogo en parteconestilo.cl\n2️⃣ Elige el diseño que más te guste\n3️⃣ Llena el formulario de solicitud en la misma página\n\nUna vez recibido, te enviaremos un correo con la cotización y los pasos a seguir 💌');
+      await sendText(from, '¡Genial! 🎨 Nuestros diseños se pueden personalizar en colores, tipografía, imágenes y texto.\n\nAlgunos cambios más elaborados pueden tener un costo adicional.\n\nPara comenzar:\n1️⃣ Revisa el catálogo en parteconestilo.cl/partesdematrimonio\n2️⃣ Elige el diseño que más te guste\n3️⃣ Llena el formulario de solicitud en la misma página\n\nUna vez recibido, te enviaremos un correo con la cotización y los pasos a seguir 💌');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'imp_catalogo', title: 'Ver catálogo' },
         { id: 'opt_persona',  title: 'Hablar con nosotras' },
@@ -104,7 +104,7 @@ async function handleMessage(from, input) {
       break;
 
     case 'imp_proceso':
-      await sendText(from, '📋 *Así funciona el proceso:*\n\n1️⃣ Elige tu diseño en parteconestilo.cl y llena el formulario\n2️⃣ Te enviamos un correo con la *cotización total* + solicitud de información\n3️⃣ Completas y nos reenvías la información\n4️⃣ Te enviamos un *bosquejo en PDF* para revisar\n5️⃣ Apruebas el bosquejo y realizas el *pago del 100%*\n6️⃣ Te confirmamos la *fecha de entrega o envío* 🎉\n\n⏱️ Listo en *1 a 2 semanas* desde el pago y aprobación del bosquejo\n📦 Mínimo: *25 unidades* (sin excepción)');
+      await sendText(from, '📋 *Así funciona el proceso:*\n\n1️⃣ Elige tu diseño en parteconestilo.cl/partesdematrimonio y llena el formulario\n2️⃣ Te enviamos un correo con la *cotización total* + solicitud de información\n3️⃣ Completas y nos reenvías la información\n4️⃣ Te enviamos un *bosquejo en PDF* para revisar\n5️⃣ Apruebas el bosquejo y realizas el *pago del 100%*\n6️⃣ Te confirmamos la *fecha de entrega o envío* 🎉\n\n⏱️ Listo en *1 a 2 semanas* desde el pago y aprobación del bosquejo\n📦 Mínimo: *25 unidades* (sin excepción)');
       await sendButtons(from, '¿Necesitas más información?', [
         { id: 'imp_retiro',  title: 'Retiro y envíos' },
         { id: 'imp_papeles', title: 'Tipos de papel' },
@@ -194,7 +194,7 @@ async function handleMessage(from, input) {
 
     // ── Papelería ──────────────────────────────────────────────────────────
     case 'pap_catalogo':
-      await sendText(from, '🔍 Puedes ver nuestros complementos aquí:\n👉 https://www.parteconestilo.cl/papeles\n\n¿Tienes alguna consulta? 😊');
+      await sendText(from, '🔍 Puedes ver nuestros complementos aquí:\n👉 https://www.parteconestilo.cl/recuerdosymas-1\n\n¿Tienes alguna consulta? 😊');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'pap_personalizada', title: 'Solicitar personalizada' },
         { id: 'main_back',         title: 'Menú principal' },
@@ -320,7 +320,7 @@ async function handleOrderFlow(from, input, state) {
       } else {
         order.cantidad = n;
         userStates[from] = { step: 'order_impresa_diseño', order };
-        await sendText(from, `¡Perfecto, ${n} invitaciones! 🌿\n\n*¿Cuál es el nombre del diseño que te interesa?*\nVe el catálogo en: https://parteconestilo.cl`);
+        await sendText(from, `¡Perfecto, ${n} invitaciones! 🌿\n\n*¿Cuál es el nombre del diseño que te interesa?*\nVe el catálogo en: https://www.parteconestilo.cl/partesdematrimonio`);
       }
       break;
     }

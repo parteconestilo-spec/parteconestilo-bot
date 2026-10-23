@@ -115,26 +115,27 @@ app.post('/webhook', async (req, res) => {
 
       // Detectar echoes: mensajes enviados desde la cuenta (bot o dueña manualmente)
       if (messaging.message?.is_echo) {
-        const echoAppId  = String(messaging.message?.app_id || '');
-        const isFromBot  = echoAppId === BOT_APP_ID;
-        if (!isFromBot) {
-          // La dueña escribió manualmente desde el inbox → activar/desactivar modo humano
+        const echoAppId = messaging.message?.app_id;
+        // Log para confirmar el app_id real (útil para depuración en Render)
+        console.log(`[ECHO] app_id=${JSON.stringify(echoAppId)}`);
+
+        // Cuando el BOT envía un mensaje por API → echo CON app_id → ignorar
+        // Cuando la DUEÑA escribe desde el inbox manualmente → echo SIN app_id → modo humano
+        if (!echoAppId) {
           const customerId = messaging.recipient?.id;
           if (customerId) {
             const echoText = (messaging.message?.text || '').toLowerCase().trim();
             if (echoText === 'bot on') {
-              // La dueña escribe "bot on" → reactivar el bot para este cliente
               if (userStates[customerId]) delete userStates[customerId].humanModeAt;
               console.log(`[HUMAN] Bot reactivado para ${customerId}`);
             } else {
-              // La dueña escribió cualquier otra cosa → apagar el bot para este cliente
               if (!userStates[customerId]) userStates[customerId] = {};
               userStates[customerId].humanModeAt = Date.now();
               console.log(`[HUMAN] Modo humano activado para ${customerId}`);
             }
           }
         }
-        return; // siempre ignorar echoes como mensajes entrantes
+        return;
       }
 
       // Ignorar eventos que no son mensajes reales (visto, reacciones, etc.)
@@ -650,7 +651,7 @@ async function sendMainMenu(from) {
       rows: [
         { id: 'opt_pedido',  title: '🛒 Hacer mi pedido',          shortTitle: '🛒 Hacer pedido', description: 'Sin ir a la página web' },
         { id: 'opt_faq',     title: '❓ Preguntas frecuentes',      shortTitle: '❓ Preguntas',    description: 'Dudas comunes' },
-        { id: 'opt_persona', title: '👩 Hablar con nosotras',       shortTitle: '👩 Nosotras',     description: 'Lun-Vie 9:30-18:00' }
+        { id: 'opt_persona', title: '👩 Hablar con nosotras',       shortTitle: '👩 Nosotras',     description: 'Lun-Vie 10:00-18:00' }
       ]
     }]
   );
@@ -750,7 +751,7 @@ async function sendFAQ(from) {
 async function sendHumano(from) {
   const platform = getPlatform(from);
   const canal    = platform === 'messenger' ? 'Messenger' : platform === 'instagram' ? 'Instagram' : 'WhatsApp';
-  await sendText(from, '¡Con gusto te ayudamos personalmente! 🙌\n\nUn momento, te conectamos con nosotros.\n_Atención: lunes a viernes, 9:30 a 18:00 hrs_ 💌');
+  await sendText(from, '¡Con gusto te ayudamos personalmente! 🙌\n\nUn momento, te conectamos con nosotros.\n_Atención: lunes a viernes, 10:00 a 18:00 hrs_ 💌');
   await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\nUn cliente quiere hablar con una persona.\n🔗 ${clientLink(from)}\n📱 Canal: ${canal}`);
 }
 

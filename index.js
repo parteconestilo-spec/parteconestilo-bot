@@ -14,11 +14,12 @@ const ADMIN_NUMBER      = (process.env.ADMIN_NUMBER       || '').trim();
 const userStates = {};
 
 // ── Deduplicación de mensajes (evita procesar el mismo mensaje 2+ veces) ───
-// Combina dedup por MID y por "mismo usuario en menos de 3 segundos"
+// Dedup por MID exacto O por (usuario + mismo texto) dentro de 2 segundos.
+// Así bloquea el doble-envío de Meta pero NO bloquea al usuario navegando menús.
 const processedMids = new Set();
-const lastMessageTime = {}; // userId → timestamp último mensaje procesado
+const lastUserInput = {}; // userId → { input, time }
 
-function isDuplicate(mid, userId) {
+function isDuplicate(mid, userId, input) {
   // 1. Mismo MID exacto
   if (mid) {
     if (processedMids.has(mid)) return true;
@@ -28,12 +29,12 @@ function isDuplicate(mid, userId) {
       for (let i = 0; i < 100; i++) processedMids.delete(iter.next().value);
     }
   }
-  // 2. Mismo usuario, menos de 3 segundos desde el último mensaje procesado
+  // 2. Mismo usuario + mismo texto/payload dentro de 2 segundos
   if (userId) {
-    const now = Date.now();
-    const last = lastMessageTime[userId] || 0;
-    if (now - last < 3000) return true;
-    lastMessageTime[userId] = now;
+    const now  = Date.now();
+    const last = lastUserInput[userId];
+    if (last && last.input === input && (now - last.time) < 2000) return true;
+    lastUserInput[userId] = { input, time: now };
   }
   return false;
 }
@@ -130,30 +131,29 @@ app.post('/webhook', async (req, res) => {
 
       const from = messaging.sender.id;
 
-      // Ignorar duplicados (mismo mid O mismo usuario en <3 segundos)
-      const mid = messaging.message?.mid;
-      if (isDuplicate(mid, from)) {
-        console.log(`[WEBHOOK] Duplicado ignorado de ${from}`);
-        return;
-      }
-
-      console.log(`[WEBHOOK] Mensaje de ${from} en ${platform}`);
-
-      // Si la dueña tomó control, no responder con el bot
-      if (isHumanMode(from)) {
-        console.log(`[HUMAN] Usuario ${from} en modo humano — bot no responde`);
-        return;
-      }
-
-      let input  = '';
-
-      // Prioridad: quick_reply > postback > texto
+      // Extraer input antes del dedup para comparar contenido
+      let input = '';
       if (messaging.message?.quick_reply?.payload)
         input = messaging.message.quick_reply.payload;
       else if (messaging.postback?.payload)
         input = messaging.postback.payload;
       else if (messaging.message?.text)
         input = messaging.message.text.trim().toLowerCase();
+
+      // Ignorar duplicados (mismo MID O mismo usuario+texto en <2 segundos)
+      const mid = messaging.message?.mid;
+      if (isDuplicate(mid, from, input)) {
+        console.log(`[WEBHOOK] Duplicado ignorado de ${from}: "${input}"`);
+        return;
+      }
+
+      console.log(`[WEBHOOK] Mensaje de ${from} en ${platform}: "${input}"`);
+
+      // Si la dueña tomó control, no responder con el bot
+      if (isHumanMode(from)) {
+        console.log(`[HUMAN] Usuario ${from} en modo humano — bot no responde`);
+        return;
+      }
 
       if (!userStates[from]) userStates[from] = {};
       userStates[from].platform = platform;

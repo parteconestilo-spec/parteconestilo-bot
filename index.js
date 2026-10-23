@@ -59,11 +59,19 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+// ── Modo humano: pausa el bot cuando la dueña escribe manualmente ──────────
+// El bot se pausa hasta que la dueña escriba "bot on" en esa conversación,
+// o hasta que Render se reinicie (estado en memoria).
+function isHumanMode(userId) {
+  return !!userStates[userId]?.humanModeAt;
+}
+
 // ── Webhook: mensajes entrantes ────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
   try {
     const body = req.body;
+    console.log('[WEBHOOK] Evento recibido:', body.object);
 
     // ── WhatsApp ────────────────────────────────────────────────────────────
     if (body.object === 'whatsapp_business_account') {
@@ -89,13 +97,39 @@ app.post('/webhook', async (req, res) => {
       const platform  = body.object === 'page' ? 'messenger' : 'instagram';
       const messaging = body.entry?.[0]?.messaging?.[0];
       if (!messaging) return;
-      if (messaging.message?.is_echo) return; // ignorar mensajes propios
+
+      // Detectar si la dueña escribió manualmente (echo = mensaje enviado desde la cuenta)
+      if (messaging.message?.is_echo) {
+        const toUser = messaging.recipient?.id;
+        const echoText = messaging.message?.text?.trim().toLowerCase() || '';
+        if (toUser) {
+          if (!userStates[toUser]) userStates[toUser] = { platform };
+          // Palabra clave para reactivar el bot manualmente
+          if (echoText === 'bot on') {
+            delete userStates[toUser].humanModeAt;
+            console.log(`[BOT] Bot reactivado manualmente para usuario ${toUser}`);
+          } else {
+            // Cualquier otro mensaje tuyo pausa el bot
+            userStates[toUser].humanModeAt = Date.now();
+            console.log(`[HUMAN] Modo humano activado para usuario ${toUser} — bot pausado`);
+          }
+        }
+        return;
+      }
 
       // Ignorar duplicados (mismo mid procesado más de una vez)
       const mid = messaging.message?.mid;
       if (isDuplicate(mid)) return;
 
       const from = messaging.sender.id;
+      console.log(`[WEBHOOK] Mensaje de ${from} en ${platform}`);
+
+      // Si la dueña tomó control, no responder con el bot
+      if (isHumanMode(from)) {
+        console.log(`[HUMAN] Usuario ${from} en modo humano — bot no responde`);
+        return;
+      }
+
       let input  = '';
 
       // Prioridad: quick_reply > postback > texto

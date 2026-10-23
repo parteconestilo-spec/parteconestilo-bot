@@ -16,6 +16,9 @@ const BOT_APP_ID        = (process.env.BOT_APP_ID         || '2238832086763384')
 // ── Estado de conversaciones en memoria ────────────────────────────────────
 const userStates = {};
 
+// ── MIDs enviados por el bot (para distinguir echoes propios de los de la dueña) ──
+const botSentMids = new Set();
+
 // ── Deduplicación de mensajes (evita procesar el mismo mensaje 2+ veces) ───
 // Dedup por MID exacto O por (usuario + mismo texto) dentro de 2 segundos.
 // Así bloquea el doble-envío de Meta pero NO bloquea al usuario navegando menús.
@@ -115,13 +118,12 @@ app.post('/webhook', async (req, res) => {
 
       // Detectar echoes: mensajes enviados desde la cuenta (bot o dueña manualmente)
       if (messaging.message?.is_echo) {
-        const echoAppId = messaging.message?.app_id;
-        // Log para confirmar el app_id real (útil para depuración en Render)
-        console.log(`[ECHO] app_id=${JSON.stringify(echoAppId)}`);
+        const echoMid    = messaging.message?.mid;
+        const isFromBot  = echoMid && botSentMids.has(echoMid);
+        console.log(`[ECHO] mid=${echoMid} isFromBot=${isFromBot}`);
 
-        // Cuando el BOT envía un mensaje por API → echo CON app_id → ignorar
-        // Cuando la DUEÑA escribe desde el inbox manualmente → echo SIN app_id → modo humano
-        if (!echoAppId) {
+        if (!isFromBot) {
+          // La dueña escribió manualmente desde el inbox → activar/desactivar modo humano
           const customerId = messaging.recipient?.id;
           if (customerId) {
             const echoText = (messaging.message?.text || '').toLowerCase().trim();
@@ -897,7 +899,7 @@ async function callSocialAPI(to, message) {
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
   _lastSocialCall = Date.now();
   try {
-    await axios.post(
+    const resp = await axios.post(
       'https://graph.facebook.com/v20.0/me/messages',
       { recipient: { id: to }, message },
       {
@@ -905,6 +907,15 @@ async function callSocialAPI(to, message) {
         params:  { access_token: PAGE_ACCESS_TOKEN }
       }
     );
+    // Guardar el MID para distinguir echoes propios de los de la dueña
+    const messageId = resp.data?.message_id;
+    if (messageId) {
+      botSentMids.add(messageId);
+      if (botSentMids.size > 500) {
+        const iter = botSentMids.values();
+        for (let i = 0; i < 100; i++) botSentMids.delete(iter.next().value);
+      }
+    }
   } catch (e) {
     console.error('Error API Social:', e.response?.data || e.message);
   }

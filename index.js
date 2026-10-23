@@ -52,8 +52,8 @@ function getPlatform(userId) {
 
 function clientLink(from) {
   const p = getPlatform(from);
-  if (p === 'messenger') return `Messenger ID: ${from}`;
-  if (p === 'instagram') return `Instagram ID: ${from}`;
+  if (p === 'messenger') return `Messenger ID: ${from}\nhttps://business.facebook.com/direct-inbox/t/${from}`;
+  if (p === 'instagram') return `Instagram ID: ${from}\nhttps://business.facebook.com/latest/inbox/direct?mailbox_id=${from}`;
   return `wa.me/${from}`;
 }
 
@@ -66,6 +66,27 @@ function fmt(text, platform) {
 }
 
 // ── Webhook: verificación de Meta ──────────────────────────────────────────
+// ── Endpoint admin: reactivar/desactivar bot sin escribir en el chat ─────────
+app.get('/admin/bot', (req, res) => {
+  const { token, user, action } = req.query;
+  const secret = (process.env.ADMIN_SECRET || VERIFY_TOKEN);
+  if (token !== secret) return res.status(403).send('Acceso denegado');
+  if (!user)           return res.status(400).send('Falta parámetro: user');
+
+  if (action === 'on') {
+    if (userStates[user]) delete userStates[user].humanModeAt;
+    console.log(`[ADMIN] Bot reactivado para ${user} via URL`);
+    return res.send('✅ Bot reactivado. Ya puede responder a este cliente.');
+  }
+  if (action === 'off') {
+    if (!userStates[user]) userStates[user] = {};
+    userStates[user].humanModeAt = Date.now();
+    console.log(`[ADMIN] Modo humano activado para ${user} via URL`);
+    return res.send('✅ Modo humano activado. El bot no responderá a este cliente.');
+  }
+  res.status(400).send('Usa ?action=on o ?action=off');
+});
+
 app.get('/webhook', (req, res) => {
   const mode      = req.query['hub.mode'];
   const token     = req.query['hub.verify_token'];
@@ -123,18 +144,17 @@ app.post('/webhook', async (req, res) => {
         console.log(`[ECHO] mid=${echoMid} isFromBot=${isFromBot}`);
 
         if (!isFromBot) {
-          // La dueña escribió manualmente desde el inbox → activar/desactivar modo humano
+          // La dueña escribió manualmente desde el inbox → activar modo humano
           const customerId = messaging.recipient?.id;
           if (customerId) {
-            const echoText = (messaging.message?.text || '').toLowerCase().trim();
-            if (echoText === 'bot on') {
-              if (userStates[customerId]) delete userStates[customerId].humanModeAt;
-              console.log(`[HUMAN] Bot reactivado para ${customerId}`);
-            } else {
-              if (!userStates[customerId]) userStates[customerId] = {};
-              userStates[customerId].humanModeAt = Date.now();
-              console.log(`[HUMAN] Modo humano activado para ${customerId}`);
-            }
+            if (!userStates[customerId]) userStates[customerId] = {};
+            userStates[customerId].humanModeAt = Date.now();
+            console.log(`[HUMAN] Modo humano activado para ${customerId}`);
+            // Notificar con link para reactivar el bot cuando termine la atención
+            const appUrl  = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+            const secret  = (process.env.ADMIN_SECRET || VERIFY_TOKEN);
+            const linkOn  = appUrl ? `\n\n🔁 *Reactivar bot cuando termines:*\n${appUrl}/admin/bot?token=${secret}&user=${customerId}&action=on` : '';
+            await sendAdminText(`⚠️ *MODO HUMANO ACTIVADO*\nEstás atendiendo a:\n${clientLink(customerId)}${linkOn}`);
           }
         }
         return;
@@ -754,7 +774,10 @@ async function sendHumano(from) {
   const platform = getPlatform(from);
   const canal    = platform === 'messenger' ? 'Messenger' : platform === 'instagram' ? 'Instagram' : 'WhatsApp';
   await sendText(from, '¡Con gusto te ayudamos personalmente! 🙌\n\nUn momento, te conectamos con nosotros.\n_Atención: lunes a viernes, 10:00 a 18:00 hrs_ 💌');
-  await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\nUn cliente quiere hablar con una persona.\n🔗 ${clientLink(from)}\n📱 Canal: ${canal}`);
+  const appUrl   = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+  const secret   = (process.env.ADMIN_SECRET || VERIFY_TOKEN);
+  const linkOn   = appUrl ? `\n\n🔁 *Reactivar bot cuando termines:*\n${appUrl}/admin/bot?token=${secret}&user=${from}&action=on` : '';
+  await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\nUn cliente quiere hablar con una persona.\n🔗 ${clientLink(from)}\n📱 Canal: ${canal}${linkOn}`);
 }
 
 // ── Funciones de envío — plataforma automática ───────────────────────────────

@@ -14,15 +14,26 @@ const ADMIN_NUMBER      = (process.env.ADMIN_NUMBER       || '').trim();
 const userStates = {};
 
 // ── Deduplicación de mensajes (evita procesar el mismo mensaje 2+ veces) ───
+// Combina dedup por MID y por "mismo usuario en menos de 3 segundos"
 const processedMids = new Set();
-function isDuplicate(mid) {
-  if (!mid) return false;
-  if (processedMids.has(mid)) return true;
-  processedMids.add(mid);
-  // Limpiar entradas antiguas si crece demasiado
-  if (processedMids.size > 500) {
-    const iter = processedMids.values();
-    for (let i = 0; i < 100; i++) processedMids.delete(iter.next().value);
+const lastMessageTime = {}; // userId → timestamp último mensaje procesado
+
+function isDuplicate(mid, userId) {
+  // 1. Mismo MID exacto
+  if (mid) {
+    if (processedMids.has(mid)) return true;
+    processedMids.add(mid);
+    if (processedMids.size > 500) {
+      const iter = processedMids.values();
+      for (let i = 0; i < 100; i++) processedMids.delete(iter.next().value);
+    }
+  }
+  // 2. Mismo usuario, menos de 3 segundos desde el último mensaje procesado
+  if (userId) {
+    const now = Date.now();
+    const last = lastMessageTime[userId] || 0;
+    if (now - last < 3000) return true;
+    lastMessageTime[userId] = now;
   }
   return false;
 }
@@ -117,11 +128,15 @@ app.post('/webhook', async (req, res) => {
         return;
       }
 
-      // Ignorar duplicados (mismo mid procesado más de una vez)
-      const mid = messaging.message?.mid;
-      if (isDuplicate(mid)) return;
-
       const from = messaging.sender.id;
+
+      // Ignorar duplicados (mismo mid O mismo usuario en <3 segundos)
+      const mid = messaging.message?.mid;
+      if (isDuplicate(mid, from)) {
+        console.log(`[WEBHOOK] Duplicado ignorado de ${from}`);
+        return;
+      }
+
       console.log(`[WEBHOOK] Mensaje de ${from} en ${platform}`);
 
       // Si la dueña tomó control, no responder con el bot

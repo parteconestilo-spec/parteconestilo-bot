@@ -9,6 +9,9 @@ const PHONE_NUMBER_ID   = (process.env.PHONE_NUMBER_ID    || '').trim();
 const ACCESS_TOKEN      = (process.env.ACCESS_TOKEN       || '').replace(/[\r\n\s]+/g, '');
 const PAGE_ACCESS_TOKEN = (process.env.PAGE_ACCESS_TOKEN  || '').replace(/[\r\n\s]+/g, '');
 const ADMIN_NUMBER      = (process.env.ADMIN_NUMBER       || '').trim();
+// ID de la aplicación Meta del bot — los echoes del bot llevan este app_id.
+// Los mensajes que la dueña escribe manualmente NO lo llevan → activan modo humano.
+const BOT_APP_ID        = (process.env.BOT_APP_ID         || '2238832086763384').trim();
 
 // ── Estado de conversaciones en memoria ────────────────────────────────────
 const userStates = {};
@@ -110,8 +113,29 @@ app.post('/webhook', async (req, res) => {
       const messaging = body.entry?.[0]?.messaging?.[0];
       if (!messaging) return;
 
-      // Ignorar todos los echo (mensajes enviados desde la cuenta, incluyendo los del bot)
-      if (messaging.message?.is_echo) return;
+      // Detectar echoes: mensajes enviados desde la cuenta (bot o dueña manualmente)
+      if (messaging.message?.is_echo) {
+        const echoAppId  = String(messaging.message?.app_id || '');
+        const isFromBot  = echoAppId === BOT_APP_ID;
+        if (!isFromBot) {
+          // La dueña escribió manualmente desde el inbox → activar/desactivar modo humano
+          const customerId = messaging.recipient?.id;
+          if (customerId) {
+            const echoText = (messaging.message?.text || '').toLowerCase().trim();
+            if (echoText === 'bot on') {
+              // La dueña escribe "bot on" → reactivar el bot para este cliente
+              if (userStates[customerId]) delete userStates[customerId].humanModeAt;
+              console.log(`[HUMAN] Bot reactivado para ${customerId}`);
+            } else {
+              // La dueña escribió cualquier otra cosa → apagar el bot para este cliente
+              if (!userStates[customerId]) userStates[customerId] = {};
+              userStates[customerId].humanModeAt = Date.now();
+              console.log(`[HUMAN] Modo humano activado para ${customerId}`);
+            }
+          }
+        }
+        return; // siempre ignorar echoes como mensajes entrantes
+      }
 
       // Ignorar eventos que no son mensajes reales (visto, reacciones, etc.)
       if (!messaging.message && !messaging.postback) return;
@@ -476,8 +500,11 @@ async function handleOrderFlow(from, input, state) {
       order.papel = papeles[input] || input;
       userStates[from] = { ...userStates[from], step: 'order_impresa_adicionales', order };
       await sendText(from,
-        `Papel: *${order.papel}* ✅\n\n*¿Deseas agregar algún adicional?*\n\nEscribe los que desees o escribe *"ninguno"*:\n\n✏️ Nombres escritos con pluma a máquina: *+$400*\n🔴 Sello de lacre: *+$400*\n💎 Sello de lacre con iniciales: *+$550*\n📮 Estampillas: *+$200*\n🗺️ Mapa al reverso de la invitación: *+$900*\n🌿 Flor decorativa (ej: ramita de lavanda): *+$350*\n🖨️ Nombres de invitados impresos: *+$200*`
+        `Papel: *${order.papel}* ✅\n\n*¿Deseas agregar algún adicional?*\n\nEscribe los que desees, o toca el botón si no quieres ninguno:\n\n✏️ Nombres escritos con pluma a máquina: *+$400*\n🔴 Sello de lacre: *+$400*\n💎 Sello de lacre con iniciales: *+$550*\n📮 Estampillas: *+$200*\n🗺️ Mapa al reverso de la invitación: *+$900*\n🌿 Flor decorativa (ej: ramita de lavanda): *+$350*\n🖨️ Nombres de invitados impresos: *+$200*`
       );
+      await sendButtons(from, '¿Sin adicionales?', [
+        { id: 'ninguno', title: '✅ Ninguno' }
+      ]);
       break;
     }
 
@@ -862,7 +889,12 @@ async function callWhatsAppAPI(data) {
 }
 
 // Messenger / Instagram Send API
+// Throttle: mínimo 400 ms entre llamadas para garantizar orden de llegada
+let _lastSocialCall = 0;
 async function callSocialAPI(to, message) {
+  const wait = Math.max(0, 400 - (Date.now() - _lastSocialCall));
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  _lastSocialCall = Date.now();
   try {
     await axios.post(
       'https://graph.facebook.com/v20.0/me/messages',

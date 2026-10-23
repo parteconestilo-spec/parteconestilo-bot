@@ -110,24 +110,8 @@ app.post('/webhook', async (req, res) => {
       const messaging = body.entry?.[0]?.messaging?.[0];
       if (!messaging) return;
 
-      // Detectar si la dueña escribió manualmente (echo = mensaje enviado desde la cuenta)
-      if (messaging.message?.is_echo) {
-        const toUser = messaging.recipient?.id;
-        const echoText = messaging.message?.text?.trim().toLowerCase() || '';
-        if (toUser) {
-          if (!userStates[toUser]) userStates[toUser] = { platform };
-          // Palabra clave para reactivar el bot manualmente
-          if (echoText === 'bot on') {
-            delete userStates[toUser].humanModeAt;
-            console.log(`[BOT] Bot reactivado manualmente para usuario ${toUser}`);
-          } else {
-            // Cualquier otro mensaje tuyo pausa el bot
-            userStates[toUser].humanModeAt = Date.now();
-            console.log(`[HUMAN] Modo humano activado para usuario ${toUser} — bot pausado`);
-          }
-        }
-        return;
-      }
+      // Ignorar todos los echo (mensajes enviados desde la cuenta, incluyendo los del bot)
+      if (messaging.message?.is_echo) return;
 
       const from = messaging.sender.id;
 

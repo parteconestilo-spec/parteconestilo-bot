@@ -13,6 +13,20 @@ const ADMIN_NUMBER      = (process.env.ADMIN_NUMBER       || '').trim();
 // ── Estado de conversaciones en memoria ────────────────────────────────────
 const userStates = {};
 
+// ── Deduplicación de mensajes (evita procesar el mismo mensaje 2+ veces) ───
+const processedMids = new Set();
+function isDuplicate(mid) {
+  if (!mid) return false;
+  if (processedMids.has(mid)) return true;
+  processedMids.add(mid);
+  // Limpiar entradas antiguas si crece demasiado
+  if (processedMids.size > 500) {
+    const iter = processedMids.values();
+    for (let i = 0; i < 100; i++) processedMids.delete(iter.next().value);
+  }
+  return false;
+}
+
 // ── Helpers de plataforma ───────────────────────────────────────────────────
 function getPlatform(userId) {
   return userStates[userId]?.platform || 'whatsapp';
@@ -76,6 +90,10 @@ app.post('/webhook', async (req, res) => {
       const messaging = body.entry?.[0]?.messaging?.[0];
       if (!messaging) return;
       if (messaging.message?.is_echo) return; // ignorar mensajes propios
+
+      // Ignorar duplicados (mismo mid procesado más de una vez)
+      const mid = messaging.message?.mid;
+      if (isDuplicate(mid)) return;
 
       const from = messaging.sender.id;
       let input  = '';

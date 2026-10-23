@@ -113,6 +113,9 @@ app.post('/webhook', async (req, res) => {
       // Ignorar todos los echo (mensajes enviados desde la cuenta, incluyendo los del bot)
       if (messaging.message?.is_echo) return;
 
+      // Ignorar eventos que no son mensajes reales (visto, reacciones, etc.)
+      if (!messaging.message && !messaging.postback) return;
+
       const from = messaging.sender.id;
 
       // Extraer input antes del dedup para comparar contenido

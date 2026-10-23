@@ -16,6 +16,49 @@ const BOT_APP_ID        = (process.env.BOT_APP_ID         || '2238832086763384')
 // ── Estado de conversaciones en memoria ────────────────────────────────────
 const userStates = {};
 
+// ── Upstash Redis (persistencia del modo humano entre reinicios) ────────────
+// Si no se configuran las vars, todo funciona igual pero en memoria solamente.
+const UPSTASH_URL   = (process.env.UPSTASH_REDIS_REST_URL   || '').replace(/\/$/, '');
+const UPSTASH_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || '');
+const REDIS_HASH    = 'human_modes'; // hash donde guardamos { userId: timestamp }
+
+async function redisHSet(field, value) {
+  if (!UPSTASH_URL) return;
+  try {
+    await axios.post(`${UPSTASH_URL}/hset/${REDIS_HASH}`,
+      { [field]: String(value) },
+      { headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` } }
+    );
+  } catch (e) { console.error('[REDIS] hset error:', e.message); }
+}
+
+async function redisHDel(field) {
+  if (!UPSTASH_URL) return;
+  try {
+    await axios.get(`${UPSTASH_URL}/hdel/${REDIS_HASH}/${encodeURIComponent(field)}`,
+      { headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` } }
+    );
+  } catch (e) { console.error('[REDIS] hdel error:', e.message); }
+}
+
+async function loadHumanModes() {
+  if (!UPSTASH_URL) return;
+  try {
+    const resp = await axios.get(`${UPSTASH_URL}/hgetall/${REDIS_HASH}`,
+      { headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` } }
+    );
+    const data = resp.data?.result; // array [field, value, field, value, ...]
+    if (!Array.isArray(data) || data.length === 0) return;
+    for (let i = 0; i < data.length; i += 2) {
+      const userId = data[i];
+      const ts     = parseInt(data[i + 1]);
+      if (!userStates[userId]) userStates[userId] = {};
+      userStates[userId].humanModeAt = ts;
+    }
+    console.log(`[REDIS] Cargados ${data.length / 2} modos humanos desde Redis`);
+  } catch (e) { console.error('[REDIS] loadHumanModes error:', e.message); }
+}
+
 // ── MIDs enviados por el bot (para distinguir echoes propios de los de la dueña) ──
 const botSentMids = new Set();
 
@@ -154,6 +197,7 @@ app.get('/admin/bot', (req, res) => {
 
   if (action === 'on') {
     if (userStates[user]) { delete userStates[user].humanModeAt; delete userStates[user].humanModeNotified; }
+    redisHDel(user); // quitar de Redis
     console.log(`[ADMIN] Bot reactivado para ${user} via panel`);
     const base = appBaseUrl();
     const t    = adminSecret();
@@ -162,6 +206,7 @@ app.get('/admin/bot', (req, res) => {
   if (action === 'off') {
     if (!userStates[user]) userStates[user] = {};
     userStates[user].humanModeAt = Date.now();
+    redisHSet(user, userStates[user].humanModeAt); // persistir
     console.log(`[ADMIN] Modo humano activado para ${user} via panel`);
     return res.send('✅ Modo humano activado.');
   }
@@ -180,8 +225,8 @@ app.get('/webhook', (req, res) => {
 });
 
 // ── Modo humano: pausa el bot cuando la dueña escribe manualmente ──────────
-// El bot se pausa hasta que la dueña escriba "bot on" en esa conversación,
-// o hasta que Render se reinicie (estado en memoria).
+// El bot queda en pausa indefinidamente hasta que la dueña lo reactive
+// manualmente desde el panel admin (/admin?token=...).
 function isHumanMode(userId) {
   return !!userStates[userId]?.humanModeAt;
 }
@@ -231,6 +276,7 @@ app.post('/webhook', async (req, res) => {
             const yaEraHumano = !!userStates[customerId]?.humanModeAt;
             if (!userStates[customerId]) userStates[customerId] = {};
             userStates[customerId].humanModeAt = Date.now();
+            redisHSet(customerId, userStates[customerId].humanModeAt); // persistir
 
             // Solo notificar la PRIMERA vez (no en cada mensaje que escriba)
             if (!yaEraHumano) {
@@ -293,8 +339,18 @@ async function handleMessage(from, input) {
   const state = userStates[from] || {};
   const step  = state.step || 'new';
 
-  if (step.startsWith('order_'))   { await handleOrderFlow(from, input, state);   return; }
-  if (step.startsWith('waiting_')) { await handleWaitingState(from, input, state); return; }
+  if (step.startsWith('order_'))   {
+    await handleOrderFlow(from, input, state);
+    if (userStates[from]) userStates[from].confusedStreak = 0;
+    return;
+  }
+  if (step.startsWith('waiting_')) {
+    await handleWaitingState(from, input, state);
+    if (userStates[from]) userStates[from].confusedStreak = 0;
+    return;
+  }
+
+  let inputRecognized = true; // se pone false solo en el default
 
   switch (input) {
     // ── Saludo / bienvenida ─────────────────────────────────────────────────
@@ -322,7 +378,7 @@ async function handleMessage(from, input) {
       await sendText(from, '🌐 Puedes ver todos nuestros diseños aquí:\nhttps://www.parteconestilo.cl/partesdematrimonio\n\nSi ya elegiste un diseño, ¡escríbenos! 😊');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'imp_personalizar', title: 'Personalizar diseño' },
-        { id: 'opt_persona',      title: 'Hablar con nosotras' },
+        { id: 'opt_persona',      title: 'Hablar con alguien' },
         { id: 'main_back',        title: 'Menú principal' }
       ]);
       break;
@@ -331,7 +387,7 @@ async function handleMessage(from, input) {
       await sendText(from, '¡Genial! 🎨 Nuestros diseños se pueden personalizar en colores, tipografía, imágenes y texto.\n\nAlgunos cambios más elaborados pueden tener un costo adicional.\n\nPara comenzar:\n1️⃣ Revisa el catálogo en parteconestilo.cl/partesdematrimonio\n2️⃣ Elige el diseño que más te guste\n3️⃣ Llena el formulario de solicitud en la misma página\n\nUna vez recibido, te enviaremos un correo con la cotización y los pasos a seguir 💌');
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'imp_catalogo', title: 'Ver catálogo' },
-        { id: 'opt_persona',  title: 'Hablar con nosotras' },
+        { id: 'opt_persona',  title: 'Hablar con alguien' },
         { id: 'main_back',    title: 'Menú principal' }
       ]);
       break;
@@ -355,7 +411,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'imp_proceso', title: 'Volver al proceso' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -402,7 +458,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'dig_adicionales', title: 'Ver adicionales' },
         { id: 'main_back',       title: 'Menú principal' },
-        { id: 'opt_persona',     title: 'Hablar con nosotras' }
+        { id: 'opt_persona',     title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -411,7 +467,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'dig_adicionales', title: 'Ver adicionales' },
         { id: 'main_back',       title: 'Menú principal' },
-        { id: 'opt_persona',     title: 'Hablar con nosotras' }
+        { id: 'opt_persona',     title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -420,7 +476,7 @@ async function handleMessage(from, input) {
       await sendAdminText(`🔔 *LINK DE PAGO REQUERIDO*\nCliente: ${clientLink(from)}`);
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' },
+        { id: 'opt_persona', title: 'Hablar con alguien' },
         { id: 'opt_faq',     title: 'Preguntas frecuentes' }
       ]);
       break;
@@ -436,7 +492,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Qué deseas hacer?', [
         { id: 'pap_personalizada', title: 'Solicitar personalizada' },
         { id: 'main_back',         title: 'Menú principal' },
-        { id: 'opt_persona',       title: 'Hablar con nosotras' }
+        { id: 'opt_persona',       title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -451,7 +507,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Preguntas frecuentes' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -476,7 +532,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -485,7 +541,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -494,7 +550,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -503,7 +559,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -512,7 +568,7 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
@@ -522,25 +578,49 @@ async function handleMessage(from, input) {
       await sendButtons(from, '¿Necesitas algo más?', [
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' }
+        { id: 'opt_persona', title: 'Hablar con alguien' }
       ]);
       break;
 
     case 'faq_temas':
       await sendText(from, '🎨 ¡Sí! Siempre que el diseño vaya con nuestro estilo, con gusto lo evaluamos 💌\n\nEscríbenos y cuéntanos tu idea 😊');
       await sendButtons(from, '¿Qué deseas hacer?', [
-        { id: 'opt_persona', title: 'Hablar con nosotras' },
+        { id: 'opt_persona', title: 'Hablar con alguien' },
         { id: 'opt_faq',     title: 'Más preguntas' },
         { id: 'main_back',   title: 'Menú principal' }
       ]);
       break;
 
-    default:
-      if (step === 'new' || step === 'main_menu') {
-        await sendWelcome(from);
-        userStates[from] = { ...userStates[from], step: 'main_menu' };
+    default: {
+      inputRecognized = false;
+      // Input libre no reconocido (texto escrito, no un botón del menú)
+      const streak = (state.confusedStreak || 0) + 1;
+      userStates[from] = { ...userStates[from], confusedStreak: streak };
+
+      if (streak >= 2) {
+        // Segunda vez seguida → conectar con la dueña directamente
+        userStates[from].confusedStreak = 0;
+        await sendText(from,
+          'Parece que prefieres conversar directamente 😊 ' +
+          'Te conectamos ahora con alguien de nuestro equipo — ¡en seguida te atienden!'
+        );
+        await sendHumano(from);
+      } else {
+        // Primera vez → recordar cómo funciona el chat y mostrar menú
+        await sendText(from,
+          'Hola 😊 Nuestro chat funciona con las opciones del menú.\n\n' +
+          'Por favor selecciona una opción abajo, o toca *"Hablar con alguien"* ' +
+          'si prefieres atención directa.'
+        );
+        await sendMainMenu(from);
       }
       break;
+    }
+  }
+
+  // Resetear streak si el input fue reconocido correctamente
+  if (inputRecognized && userStates[from]) {
+    userStates[from].confusedStreak = 0;
   }
 }
 
@@ -638,7 +718,7 @@ async function handleOrderFlow(from, input, state) {
       );
       await sendButtons(from, '¿En qué más te puedo ayudar?', [
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' },
+        { id: 'opt_persona', title: 'Hablar con alguien' },
         { id: 'opt_faq',     title: 'Preguntas frecuentes' }
       ]);
       break;
@@ -700,7 +780,7 @@ async function handleWaitingState(from, input, state) {
       userStates[from] = { ...userStates[from], step: 'main_menu' };
       await sendButtons(from, '¿En qué más te puedo ayudar?', [
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' },
+        { id: 'opt_persona', title: 'Hablar con alguien' },
         { id: 'opt_faq',     title: 'Preguntas frecuentes' }
       ]);
       break;
@@ -711,7 +791,7 @@ async function handleWaitingState(from, input, state) {
       userStates[from] = { ...userStates[from], step: 'main_menu' };
       await sendButtons(from, '¿En qué más te puedo ayudar?', [
         { id: 'main_back',   title: 'Menú principal' },
-        { id: 'opt_persona', title: 'Hablar con nosotras' },
+        { id: 'opt_persona', title: 'Hablar con alguien' },
         { id: 'opt_faq',     title: 'Preguntas frecuentes' }
       ]);
       break;
@@ -762,7 +842,7 @@ async function sendMainMenu(from) {
       rows: [
         { id: 'opt_pedido',  title: '🛒 Hacer mi pedido',          shortTitle: '🛒 Hacer pedido', description: 'Sin ir a la página web' },
         { id: 'opt_faq',     title: '❓ Preguntas frecuentes',      shortTitle: '❓ Preguntas',    description: 'Dudas comunes' },
-        { id: 'opt_persona', title: '👩 Hablar con nosotras',       shortTitle: '👩 Nosotras',     description: 'Lun-Vie 10:00-18:00' }
+        { id: 'opt_persona', title: '👩 Hablar con alguien',       shortTitle: '👩 Con alguien',     description: 'Lun-Vie 10:00-18:00' }
       ]
     }]
   );
@@ -824,7 +904,7 @@ async function sendImpresionMenu(from) {
   await sendText(from, '✂️ Si ya tienes tu diseño listo, podemos imprimirlo y cortarlo para ti.\n\nEnvíame tu archivo aquí mismo y te cotizo 📎');
   userStates[from] = { ...userStates[from], step: 'waiting_print_file' };
   await sendButtons(from, '¿Necesitas algo más?', [
-    { id: 'opt_persona', title: 'Hablar con nosotras' },
+    { id: 'opt_persona', title: 'Hablar con alguien' },
     { id: 'main_back',   title: 'Menú principal' },
     { id: 'opt_faq',     title: 'Preguntas frecuentes' }
   ]);
@@ -853,7 +933,7 @@ async function sendFAQ(from) {
         { id: 'faq_pago',    title: '¿Cómo se paga?',          description: 'Métodos de pago' },
         { id: 'faq_papeles', title: '¿Qué papeles tienen?',    description: 'Tipos de papel disponibles' },
         { id: 'faq_temas',   title: '¿Aceptan otros temas?',   shortTitle: '¿Otros temas?', description: 'No solo bodas' },
-        { id: 'opt_persona', title: 'Hablar con una persona',  shortTitle: 'Hablar nosotras', description: 'Atención personalizada' }
+        { id: 'opt_persona', title: 'Hablar con alguien',  shortTitle: 'Hablar con alguien', description: 'Atención personalizada' }
       ]
     }]
   );
@@ -1037,4 +1117,7 @@ async function callSocialAPI(to, message) {
 
 // ── Iniciar servidor ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Bot corriendo en puerto ${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`✅ Bot corriendo en puerto ${PORT}`);
+  await loadHumanModes(); // restaurar modo humano desde Redis al arrancar
+});

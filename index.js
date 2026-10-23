@@ -52,8 +52,8 @@ function getPlatform(userId) {
 
 function clientLink(from) {
   const p = getPlatform(from);
-  if (p === 'messenger') return `Messenger ID: ${from}\nhttps://business.facebook.com/direct-inbox/t/${from}`;
-  if (p === 'instagram') return `Instagram ID: ${from}\nhttps://business.facebook.com/latest/inbox/direct?mailbox_id=${from}`;
+  if (p === 'messenger') return `Messenger ID: ${from}\n📥 https://business.facebook.com/latest/inbox/all`;
+  if (p === 'instagram') return `Instagram ID: ${from}\n📥 https://www.instagram.com/direct/inbox/`;
   return `wa.me/${from}`;
 }
 
@@ -66,23 +66,104 @@ function fmt(text, platform) {
 }
 
 // ── Webhook: verificación de Meta ──────────────────────────────────────────
+// ── Helper: obtener nombre de usuario de Instagram/Messenger ─────────────────
+async function getClientName(userId) {
+  if (userStates[userId]?.name) return userStates[userId].name;
+  try {
+    const resp = await axios.get(
+      `https://graph.facebook.com/v20.0/${userId}`,
+      { params: { fields: 'name', access_token: PAGE_ACCESS_TOKEN } }
+    );
+    const name = resp.data?.name || userId;
+    if (userStates[userId]) userStates[userId].name = name;
+    return name;
+  } catch (e) {
+    return userId;
+  }
+}
+
+// ── Helper: URL base de la app ─────────────────────────────────────────────
+function appBaseUrl() {
+  return (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+}
+function adminSecret() {
+  return process.env.ADMIN_SECRET || VERIFY_TOKEN;
+}
+
+// ── Endpoint admin: dashboard para gestionar modo humano ─────────────────────
+app.get('/admin', (req, res) => {
+  const { token } = req.query;
+  if (token !== adminSecret()) return res.status(403).send('Acceso denegado');
+
+  const base = appBaseUrl();
+  const t    = adminSecret();
+
+  const activos = Object.entries(userStates)
+    .filter(([, s]) => s.humanModeAt)
+    .sort(([, a], [, b]) => b.humanModeAt - a.humanModeAt)
+    .map(([uid, s]) => {
+      const nombre = s.name || uid;
+      const desde  = new Date(s.humanModeAt).toLocaleString('es-CL', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+      return `
+        <div class="card">
+          <div class="name">👤 ${nombre}</div>
+          <div class="since">Atendiendo desde ${desde}</div>
+          <div class="actions">
+            <a href="https://www.instagram.com/direct/inbox/" target="_blank" class="btn sec">📥 Inbox</a>
+            <a href="${base}/admin/bot?token=${t}&user=${uid}&action=on" class="btn pri">🤖 Activar bot</a>
+          </div>
+        </div>`;
+    }).join('') || '<p class="empty">Sin conversaciones en modo humano 🤖</p>';
+
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Bot</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;background:#f7f3ef;min-height:100vh;padding:20px}
+h1{font-size:18px;font-weight:700;color:#5c3d2e;margin-bottom:2px}
+.sub{font-size:13px;color:#a08070;margin-bottom:20px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.name{font-size:16px;font-weight:600;color:#333;margin-bottom:3px}
+.since{font-size:12px;color:#aaa;margin-bottom:12px}
+.actions{display:flex;gap:8px}
+.btn{flex:1;text-align:center;padding:11px 8px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:600}
+.pri{background:#5c3d2e;color:#fff}
+.sec{background:#f0ebe6;color:#5c3d2e}
+.empty{color:#aaa;font-size:14px;text-align:center;padding:40px 0}
+.refresh{display:block;text-align:center;margin-top:16px;color:#a08070;font-size:13px;cursor:pointer;text-decoration:none}
+</style>
+</head>
+<body>
+<h1>🌿 Parte con Estilo — Bot Admin</h1>
+<p class="sub">Conversaciones atendidas manualmente</p>
+${activos}
+<a class="refresh" onclick="location.reload()">↺ Actualizar</a>
+</body>
+</html>`);
+});
+
 // ── Endpoint admin: reactivar/desactivar bot sin escribir en el chat ─────────
 app.get('/admin/bot', (req, res) => {
   const { token, user, action } = req.query;
-  const secret = (process.env.ADMIN_SECRET || VERIFY_TOKEN);
-  if (token !== secret) return res.status(403).send('Acceso denegado');
-  if (!user)           return res.status(400).send('Falta parámetro: user');
+  if (token !== adminSecret()) return res.status(403).send('Acceso denegado');
+  if (!user) return res.status(400).send('Falta parámetro: user');
 
   if (action === 'on') {
-    if (userStates[user]) delete userStates[user].humanModeAt;
-    console.log(`[ADMIN] Bot reactivado para ${user} via URL`);
-    return res.send('✅ Bot reactivado. Ya puede responder a este cliente.');
+    if (userStates[user]) { delete userStates[user].humanModeAt; delete userStates[user].humanModeNotified; }
+    console.log(`[ADMIN] Bot reactivado para ${user} via panel`);
+    const base = appBaseUrl();
+    const t    = adminSecret();
+    return res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bot activado</title><style>body{font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#f7f3ef;gap:16px;padding:20px}h2{color:#5c3d2e;font-size:20px}p{color:#888;font-size:14px}a{background:#5c3d2e;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600}</style></head><body><h2>✅ Bot activado</h2><p>El bot ya puede responder a este cliente.</p><a href="${base}/admin?token=${t}">← Volver al panel</a></body></html>`);
   }
   if (action === 'off') {
     if (!userStates[user]) userStates[user] = {};
     userStates[user].humanModeAt = Date.now();
-    console.log(`[ADMIN] Modo humano activado para ${user} via URL`);
-    return res.send('✅ Modo humano activado. El bot no responderá a este cliente.');
+    console.log(`[ADMIN] Modo humano activado para ${user} via panel`);
+    return res.send('✅ Modo humano activado.');
   }
   res.status(400).send('Usa ?action=on o ?action=off');
 });
@@ -147,14 +228,22 @@ app.post('/webhook', async (req, res) => {
           // La dueña escribió manualmente desde el inbox → activar modo humano
           const customerId = messaging.recipient?.id;
           if (customerId) {
+            const yaEraHumano = !!userStates[customerId]?.humanModeAt;
             if (!userStates[customerId]) userStates[customerId] = {};
             userStates[customerId].humanModeAt = Date.now();
-            console.log(`[HUMAN] Modo humano activado para ${customerId}`);
-            // Notificar con link para reactivar el bot cuando termine la atención
-            const appUrl  = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
-            const secret  = (process.env.ADMIN_SECRET || VERIFY_TOKEN);
-            const linkOn  = appUrl ? `\n\n🔁 *Reactivar bot cuando termines:*\n${appUrl}/admin/bot?token=${secret}&user=${customerId}&action=on` : '';
-            await sendAdminText(`⚠️ *MODO HUMANO ACTIVADO*\nEstás atendiendo a:\n${clientLink(customerId)}${linkOn}`);
+
+            // Solo notificar la PRIMERA vez (no en cada mensaje que escriba)
+            if (!yaEraHumano) {
+              console.log(`[HUMAN] Modo humano activado para ${customerId}`);
+              const nombre = await getClientName(customerId);
+              if (userStates[customerId]) userStates[customerId].name = nombre;
+              const base   = appBaseUrl();
+              const t      = adminSecret();
+              const panel  = base ? `\n\n🔁 *Reactivar bot cuando termines:*\n${base}/admin?token=${t}` : '';
+              await sendAdminText(`⚠️ *MODO HUMANO ACTIVADO*\n👤 *${nombre}*\n📥 instagram.com/direct/inbox/${panel}`);
+            } else {
+              console.log(`[HUMAN] Sigue en modo humano para ${customerId}`);
+            }
           }
         }
         return;
@@ -774,10 +863,12 @@ async function sendHumano(from) {
   const platform = getPlatform(from);
   const canal    = platform === 'messenger' ? 'Messenger' : platform === 'instagram' ? 'Instagram' : 'WhatsApp';
   await sendText(from, '¡Con gusto te ayudamos personalmente! 🙌\n\nUn momento, te conectamos con nosotros.\n_Atención: lunes a viernes, 10:00 a 18:00 hrs_ 💌');
-  const appUrl   = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
-  const secret   = (process.env.ADMIN_SECRET || VERIFY_TOKEN);
-  const linkOn   = appUrl ? `\n\n🔁 *Reactivar bot cuando termines:*\n${appUrl}/admin/bot?token=${secret}&user=${from}&action=on` : '';
-  await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\nUn cliente quiere hablar con una persona.\n🔗 ${clientLink(from)}\n📱 Canal: ${canal}${linkOn}`);
+  const nombre = await getClientName(from);
+  if (userStates[from]) userStates[from].name = nombre;
+  const base   = appBaseUrl();
+  const t      = adminSecret();
+  const panel  = base ? `\n\n🔁 *Reactivar bot cuando termines:*\n${base}/admin?token=${t}` : '';
+  await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\n👤 *${nombre}* quiere hablar contigo.\n📥 instagram.com/direct/inbox/\n📱 Canal: ${canal}${panel}`);
 }
 
 // ── Funciones de envío — plataforma automática ───────────────────────────────

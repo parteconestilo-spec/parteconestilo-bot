@@ -286,7 +286,8 @@ app.post('/webhook', async (req, res) => {
               const base   = appBaseUrl();
               const t      = adminSecret();
               const panel  = base ? `\n\n🔁 *Reactivar bot cuando termines:*\n${base}/admin?token=${t}` : '';
-              await sendAdminText(`⚠️ *MODO HUMANO ACTIVADO*\n👤 *${nombre}*\n📥 instagram.com/direct/inbox/${panel}`);
+              const linkEcho = clientLink(customerId);
+              await sendAdminText(`⚠️ *MODO HUMANO ACTIVADO*\n👤 *${nombre}*\n📥 ${linkEcho}${panel}`);
             } else {
               console.log(`[HUMAN] Sigue en modo humano para ${customerId}`);
             }
@@ -942,13 +943,23 @@ async function sendFAQ(from) {
 async function sendHumano(from) {
   const platform = getPlatform(from);
   const canal    = platform === 'messenger' ? 'Messenger' : platform === 'instagram' ? 'Instagram' : 'WhatsApp';
-  await sendText(from, '¡Con gusto te ayudamos personalmente! 🙌\n\nUn momento, te conectamos con nosotros.\n_Atención: lunes a viernes, 10:00 a 18:00 hrs_ 💌');
+
+  // Horario de atención: lunes a viernes 10:00–18:00 hora Santiago (America/Santiago)
+  const now        = new Date();
+  const clHour     = parseInt(now.toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Santiago' }), 10);
+  const clDay      = now.toLocaleString('en-US', { weekday: 'long', timeZone: 'America/Santiago' });
+  const isWeekday  = !['Saturday','Sunday'].includes(clDay);
+  const inHours    = isWeekday && clHour >= 10 && clHour < 18;
+
+  await sendText(from, 'Te conectaremos con alguien a la brevedad 🙌');
+
   const nombre = await getClientName(from);
   if (userStates[from]) userStates[from].name = nombre;
+  const link   = clientLink(from);
   const base   = appBaseUrl();
   const t      = adminSecret();
   const panel  = base ? `\n\n🔁 *Reactivar bot cuando termines:*\n${base}/admin?token=${t}` : '';
-  await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\n👤 *${nombre}* quiere hablar contigo.\n📥 instagram.com/direct/inbox/\n📱 Canal: ${canal}${panel}`);
+  await sendAdminText(`🔔 *ATENCIÓN REQUERIDA*\n👤 *${nombre}* quiere hablar contigo.\n📥 ${link}\n📱 Canal: ${canal}${panel}`);
 }
 
 // ── Funciones de envío — plataforma automática ───────────────────────────────

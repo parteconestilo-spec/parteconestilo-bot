@@ -953,6 +953,11 @@ async function sendHumano(from) {
 
   await sendText(from, 'Te conectaremos con alguien a la brevedad 🙌');
 
+  // Activar modo humano inmediatamente — no esperar el echo del inbox
+  if (!userStates[from]) userStates[from] = {};
+  userStates[from].humanModeAt = Date.now();
+  redisHSet(from, userStates[from].humanModeAt);
+
   const nombre = await getClientName(from);
   if (userStates[from]) userStates[from].name = nombre;
   const link   = clientLink(from);

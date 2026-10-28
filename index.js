@@ -234,6 +234,11 @@ function isHumanMode(userId) {
 // ── Webhook: mensajes entrantes ────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
+  // Bot desactivado globalmente — no responde a nadie en ninguna plataforma
+  if ((process.env.BOT_DISABLED || '').trim() === 'true') {
+    console.log('[BOT] Desactivado globalmente, ignorando mensaje');
+    return;
+  }
   try {
     const body = req.body;
     console.log('[WEBHOOK] Evento recibido:', body.object);

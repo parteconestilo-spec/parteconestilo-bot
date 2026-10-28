@@ -255,6 +255,13 @@ app.post('/webhook', async (req, res) => {
       }
       if (!userStates[from]) userStates[from] = {};
       userStates[from].platform = 'whatsapp';
+
+      // Si la dueña tomó control, no responder con el bot
+      if (isHumanMode(from)) {
+        console.log(`[HUMAN] Usuario ${from} en modo humano — bot no responde`);
+        return;
+      }
+
       await handleMessage(from, input);
 
     // ── Messenger (page) e Instagram ────────────────────────────────────────
@@ -273,7 +280,8 @@ app.post('/webhook', async (req, res) => {
           // La dueña escribió manualmente desde el inbox → activar modo humano
           const customerId = messaging.recipient?.id;
           if (customerId) {
-            const yaEraHumano = !!userStates[customerId]?.humanModeAt;
+            // yaEraHumano: true si ya estaba en modo humano O si sendHumano ya notificó
+          const yaEraHumano = !!(userStates[customerId]?.humanModeAt || userStates[customerId]?.humanModeNotified);
             if (!userStates[customerId]) userStates[customerId] = {};
             userStates[customerId].humanModeAt = Date.now();
             redisHSet(customerId, userStates[customerId].humanModeAt); // persistir
@@ -951,12 +959,19 @@ async function sendHumano(from) {
   const isWeekday  = !['Saturday','Sunday'].includes(clDay);
   const inHours    = isWeekday && clHour >= 10 && clHour < 18;
 
-  await sendText(from, 'Te conectaremos con alguien a la brevedad 🙌');
-
-  // Activar modo humano inmediatamente — no esperar el echo del inbox
+  // Activar modo humano ANTES de enviar mensajes — evita race condition con echoes.
+  // Si el echo llega antes de que se setee humanModeAt, el handler lo vería como
+  // nueva activación y mandaría una notificación duplicada.
   if (!userStates[from]) userStates[from] = {};
-  userStates[from].humanModeAt = Date.now();
+  userStates[from].humanModeAt       = Date.now();
+  userStates[from].humanModeNotified = true; // flag extra anti-duplicados
   redisHSet(from, userStates[from].humanModeAt);
+
+  // Mensaje al cliente: si está fuera de horario, incluir horario de atención
+  const customerMsg = inHours
+    ? 'Te conectaremos con alguien a la brevedad 🙌'
+    : 'Te conectaremos con alguien a la brevedad 🙌\n\n_Nuestro horario de atención es lunes a viernes, de 10:00 a 18:00 hrs 💌_';
+  await sendText(from, customerMsg);
 
   const nombre = await getClientName(from);
   if (userStates[from]) userStates[from].name = nombre;

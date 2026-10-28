@@ -253,6 +253,21 @@ app.post('/webhook', async (req, res) => {
         else if (msg.interactive.type === 'list_reply')
           input = msg.interactive.list_reply.id;
       }
+      const mid = msg.id;
+      console.log(`[WA] de=${from} mid=${mid} type=${msg.type} humanMode=${isHumanMode(from)}`);
+
+      // Ignorar mensajes del número admin (respuestas manuales de la dueña por WhatsApp)
+      if (ADMIN_NUMBER && from === ADMIN_NUMBER) {
+        console.log(`[WA] Ignorando mensaje del número admin (${from})`);
+        return;
+      }
+
+      // Deduplicar webhooks repetidos de Meta
+      if (isDuplicate(mid, from, input)) {
+        console.log(`[WA] Duplicado ignorado de ${from}: "${input}" mid=${mid}`);
+        return;
+      }
+
       if (!userStates[from]) userStates[from] = {};
       userStates[from].platform = 'whatsapp';
 
@@ -949,6 +964,12 @@ async function sendFAQ(from) {
 }
 
 async function sendHumano(from) {
+  // Guard: si ya está en modo humano, no re-notificar al admin
+  if (isHumanMode(from)) {
+    console.log(`[HUMAN] sendHumano: ${from} ya en modo humano — omitiendo notificación duplicada`);
+    return;
+  }
+
   const platform = getPlatform(from);
   const canal    = platform === 'messenger' ? 'Messenger' : platform === 'instagram' ? 'Instagram' : 'WhatsApp';
 
@@ -1148,7 +1169,10 @@ async function callSocialAPI(to, message) {
 
 // ── Iniciar servidor ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-  console.log(`✅ Bot corriendo en puerto ${PORT}`);
-  await loadHumanModes(); // restaurar modo humano desde Redis al arrancar
+// Cargar modos humanos de Redis ANTES de abrir el servidor
+// para evitar race condition donde llega un webhook antes de restaurar el estado
+loadHumanModes().finally(() => {
+  app.listen(PORT, () => {
+    console.log(`✅ Bot corriendo en puerto ${PORT}`);
+  });
 });

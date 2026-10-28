@@ -288,8 +288,13 @@ app.post('/webhook', async (req, res) => {
       // Detectar echoes: mensajes enviados desde la cuenta (bot o dueña manualmente)
       if (messaging.message?.is_echo) {
         const echoMid    = messaging.message?.mid;
-        const isFromBot  = echoMid && botSentMids.has(echoMid);
-        console.log(`[ECHO] mid=${echoMid} isFromBot=${isFromBot}`);
+        // Prioridad: app_id en el webhook es el método más confiable (sobrevive reinicios).
+        // Si el echo trae el app_id del bot, es un mensaje que mandó el bot.
+        // Si no trae app_id o trae uno distinto, la dueña lo escribió manualmente.
+        const echoAppId  = messaging.message?.app_id;
+        const isFromBot  = (echoAppId && echoAppId === BOT_APP_ID) ||
+                           (echoMid && botSentMids.has(echoMid));
+        console.log(`[ECHO] mid=${echoMid} app_id=${echoAppId} isFromBot=${isFromBot}`);
 
         if (!isFromBot) {
           // La dueña escribió manualmente desde el inbox → activar modo humano
@@ -360,6 +365,12 @@ app.post('/webhook', async (req, res) => {
 
 // ── Router principal ────────────────────────────────────────────────────────
 async function handleMessage(from, input) {
+  // Segunda línea de defensa: si está en modo humano, el bot nunca responde
+  if (isHumanMode(from)) {
+    console.log(`[HUMAN] handleMessage: ${from} en modo humano — bloqueado en segunda línea`);
+    return;
+  }
+
   const state = userStates[from] || {};
   const step  = state.step || 'new';
 

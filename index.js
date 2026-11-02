@@ -261,11 +261,6 @@ app.post('/webhook', async (req, res) => {
       const mid = msg.id;
       console.log(`[WA] de=${from} mid=${mid} type=${msg.type} humanMode=${isHumanMode(from)}`);
 
-      // Ignorar mensajes del número admin (respuestas manuales de la dueña por WhatsApp)
-      if (ADMIN_NUMBER && from === ADMIN_NUMBER) {
-        console.log(`[WA] Ignorando mensaje del número admin (${from})`);
-        return;
-      }
 
       // Deduplicar webhooks repetidos de Meta
       if (isDuplicate(mid, from, input)) {

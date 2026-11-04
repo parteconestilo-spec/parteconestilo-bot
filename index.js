@@ -8,7 +8,9 @@ const VERIFY_TOKEN      = (process.env.VERIFY_TOKEN       || 'parteconestilo2024
 const PHONE_NUMBER_ID   = (process.env.PHONE_NUMBER_ID    || '').trim();
 const ACCESS_TOKEN      = (process.env.ACCESS_TOKEN       || '').replace(/[\r\n\s]+/g, '');
 const PAGE_ACCESS_TOKEN = (process.env.PAGE_ACCESS_TOKEN  || '').replace(/[\r\n\s]+/g, '');
-const ADMIN_NUMBER      = (process.env.ADMIN_NUMBER       || '').trim();
+const ADMIN_NUMBER       = (process.env.ADMIN_NUMBER        || '').trim();
+const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN  || '').trim();
+const TELEGRAM_CHAT_ID   = (process.env.TELEGRAM_CHAT_ID    || '').trim();
 // ID de la aplicación Meta del bot — los echoes del bot llevan este app_id.
 // Los mensajes que la dueña escribe manualmente NO lo llevan → activan modo humano.
 const BOT_APP_ID        = (process.env.BOT_APP_ID         || '2238832086763384').trim();
@@ -1135,13 +1137,30 @@ async function sendListMessage(to, text, buttonText, sections) {
   }
 }
 
-// Notificación al admin — siempre por WhatsApp
+// Notificación al admin — vía Telegram (sin ventana de 24 horas)
 async function sendAdminText(text) {
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+    // Telegram: sin restricciones de sesión, siempre llega
+    console.log(`[ADMIN] Enviando notif Telegram: ${text.substring(0, 80).replace(/\n/g, ' ')}`);
+    try {
+      await axios.post(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+        { chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'Markdown' }
+      );
+      console.log('[ADMIN] Notif Telegram enviada OK');
+      return;
+    } catch (e) {
+      console.error('[ADMIN] Error Telegram:', e.response?.data || e.message);
+      // Si falla Telegram, continúa hacia WhatsApp como respaldo
+    }
+  }
+
+  // Respaldo: WhatsApp (requiere ventana de 24 horas activa)
   if (!ADMIN_NUMBER) {
-    console.warn('[ADMIN] sendAdminText: ADMIN_NUMBER no configurado — notificación no enviada');
+    console.warn('[ADMIN] sendAdminText: ni Telegram ni ADMIN_NUMBER configurados — notificación no enviada');
     return;
   }
-  console.log(`[ADMIN] Enviando notif a ${ADMIN_NUMBER}: ${text.substring(0, 80).replace(/\n/g, ' ')}`);
+  console.log(`[ADMIN] Enviando notif WhatsApp a ${ADMIN_NUMBER}: ${text.substring(0, 80).replace(/\n/g, ' ')}`);
   try {
     await callWhatsAppAPI({
       messaging_product: 'whatsapp',
@@ -1149,9 +1168,9 @@ async function sendAdminText(text) {
       type: 'text',
       text: { body: text, preview_url: false }
     });
-    console.log('[ADMIN] Notif enviada OK');
+    console.log('[ADMIN] Notif WhatsApp enviada OK');
   } catch (e) {
-    console.error('[ADMIN] Error notificando admin:', e.message);
+    console.error('[ADMIN] Error notificando admin por WhatsApp:', e.message);
   }
 }
 

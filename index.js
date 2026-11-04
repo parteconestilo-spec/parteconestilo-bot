@@ -26,7 +26,7 @@ async function redisHSet(field, value) {
   if (!UPSTASH_URL) return;
   try {
     await axios.post(`${UPSTASH_URL}/hset/${REDIS_HASH}`,
-      { [field]: String(value) },
+      [field, String(value)],
       { headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` } }
     );
   } catch (e) { console.error('[REDIS] hset error:', e.response?.data || e.message); }

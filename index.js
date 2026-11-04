@@ -29,7 +29,7 @@ async function redisHSet(field, value) {
       { [field]: String(value) },
       { headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` } }
     );
-  } catch (e) { console.error('[REDIS] hset error:', e.message); }
+  } catch (e) { console.error('[REDIS] hset error:', e.response?.data || e.message); }
 }
 
 async function redisHDel(field) {
@@ -1120,7 +1120,11 @@ async function sendListMessage(to, text, buttonText, sections) {
 
 // Notificación al admin — siempre por WhatsApp
 async function sendAdminText(text) {
-  if (!ADMIN_NUMBER) return;
+  if (!ADMIN_NUMBER) {
+    console.warn('[ADMIN] sendAdminText: ADMIN_NUMBER no configurado — notificación no enviada');
+    return;
+  }
+  console.log(`[ADMIN] Enviando notif a ${ADMIN_NUMBER}: ${text.substring(0, 80).replace(/\n/g, ' ')}`);
   try {
     await callWhatsAppAPI({
       messaging_product: 'whatsapp',
@@ -1128,8 +1132,9 @@ async function sendAdminText(text) {
       type: 'text',
       text: { body: text, preview_url: false }
     });
+    console.log('[ADMIN] Notif enviada OK');
   } catch (e) {
-    console.error('Error notificando admin:', e.message);
+    console.error('[ADMIN] Error notificando admin:', e.message);
   }
 }
 
@@ -1144,7 +1149,9 @@ async function callWhatsAppAPI(data) {
       { headers: { Authorization: `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
     );
   } catch (e) {
-    console.error('Error API WhatsApp:', e.response?.data || e.message);
+    const errData = e.response?.data || e.message;
+    console.error('[WA-API] Error:', JSON.stringify(errData));
+    throw e; // re-lanzar para que sendAdminText lo capture también
   }
 }
 

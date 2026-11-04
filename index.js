@@ -304,6 +304,7 @@ app.post('/webhook', async (req, res) => {
           const yaEraHumano = !!(userStates[customerId]?.humanModeAt || userStates[customerId]?.humanModeNotified);
             if (!userStates[customerId]) userStates[customerId] = {};
             userStates[customerId].humanModeAt = Date.now();
+            userStates[customerId].platform = platform; // preservar plataforma para clientLink
             redisHSet(customerId, userStates[customerId].humanModeAt); // persistir
 
             // Solo notificar la PRIMERA vez (no en cada mensaje que escriba)
@@ -353,8 +354,24 @@ app.post('/webhook', async (req, res) => {
         return;
       }
 
+      const isNewConversation = !userStates[from];
       if (!userStates[from]) userStates[from] = {};
       userStates[from].platform = platform;
+
+      // Notificar al admin cuando alguien escribe por primera vez en Instagram/Messenger
+      if (isNewConversation) {
+        try {
+          const nombreNuevo = await getClientName(from);
+          if (userStates[from]) userStates[from].name = nombreNuevo;
+          const canalNuevo = platform === 'instagram' ? 'Instagram' : 'Messenger';
+          const preview    = input ? `\n💬 "${input.substring(0, 80)}"` : '';
+          console.log(`[ADMIN] Nuevo mensaje en ${canalNuevo} de ${nombreNuevo} (${from})`);
+          await sendAdminText(`📩 *Nuevo mensaje en ${canalNuevo}*\n👤 *${nombreNuevo}*${preview}\n📥 ${clientLink(from)}`);
+        } catch (e) {
+          console.error('[ADMIN] Error notificando nueva conv:', e.message);
+        }
+      }
+
       await handleMessage(from, input);
     }
 
